@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo "Restoring original state..."
+/usr/bin/bkg --privatepreming
+
+echo "Killing bkgd..."
+launchctl unload /Library/LaunchDaemons/com.udevs.bkgd.plist 2> /dev/null
+
+exit 0

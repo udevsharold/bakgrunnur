@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo "Restarting runningboardd..."
+killall -9 runningboardd
+
+exit 0

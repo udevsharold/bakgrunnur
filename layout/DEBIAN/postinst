@@ -1,0 +1,13 @@
+#!/bin/bash
+
+chown root:wheel /usr/bin/bkg
+chmod +s /usr/bin/bkg
+
+echo "Initializing bkgd..."
+chown root:wheel /usr/libexec/bkgd
+chmod 755 /usr/libexec/bkgd
+chown root:wheel /Library/LaunchDaemons/com.udevs.bkgd.plist
+chmod 644 /Library/LaunchDaemons/com.udevs.bkgd.plist
+launchctl load /Library/LaunchDaemons/com.udevs.bkgd.plist 2> /dev/null
+
+exit 0
