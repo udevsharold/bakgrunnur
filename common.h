@@ -20,3 +20,23 @@
 #define PRERMING_NOTIFICATION_NAME @"com.udevs.bakgrunnur-prerming"
 
 #define defaultExpirationTime 10800 // 3hours
+
+/*
+Cycript:
+cy# @import FrontBoardServices
+cy# extern "C" NSString *FBSApplicationTerminationReasonDescription(NSUInteger)
+cy# FBSApplicationTerminationReasonDescription(0)
+*/
+
+typedef NS_ENUM(NSUInteger, FBSTerminationReason) {
+    FBSTerminationReasonNone,
+    FBSTerminationReasonUserInitiated,
+    FBSTerminationReasonPuring,
+    FBSTerminationReasonThermalIssue,
+    FBSTerminationReasonNonSpecific,
+    FBSTerminationReasonShutDownSystem,
+    FBSTerminationReasonLaunchTest,
+    FBSTerminationReasonInsecureDrawing,
+    FBSTerminationReasonLogOut,
+    FBSTerminationReasonUnknown
+};

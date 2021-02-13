@@ -11,23 +11,6 @@
     if (objc_getClass("LAActivator")) { //libactivator is installed
         [self sharedInstance];
     }
-    
-    /*
-    @autoreleasepool {
-        NSArray *args = [[NSClassFromString(@"NSProcessInfo") processInfo] arguments];
-        
-        if (args.count != 0) {
-            NSString *executablePath = args[0];
-            
-            if (executablePath) {
-                NSString *processName = [executablePath lastPathComponent];
-                if ([processName isEqualToString:@"SpringBoard"]){
-                    [self sharedInstance];
-                }
-            }
-        }
-    }
-    */
 }
 
 +(id)sharedInstance {

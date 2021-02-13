@@ -640,6 +640,9 @@
 @interface FBSSystemService : NSObject
 + (id)sharedService;
 - (void)sendActions:(id)arg1 withResult:(/*^block*/id)arg2;
+-(int)pidForApplication:(id)arg1 ;
+-(void)openApplication:(id)arg1 options:(id)arg2 withResult:(/*^block*/id)arg3 ;
+-(void)terminateApplication:(id)arg1 forReason:(long long)arg2 andReport:(BOOL)arg3 withDescription:(id)arg4 completion:(/*^block*/id)arg5 ;
 @end
 
 @interface SBIcon : NSObject

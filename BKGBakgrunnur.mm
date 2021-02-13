@@ -5,8 +5,8 @@
 #import "NSTask.h"
 #include <pthread.h>
 #include <mach/mach.h>
-#import <dlfcn.h>
-
+#include <dlfcn.h>
+#include <objc/runtime.h>
 
 //static NSDictionary *prefs;
 //static NSArray *enabledIdentifier;
@@ -113,14 +113,14 @@
 -(BOOL)isFrontMost:(NSString *)identifier{
     SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
     BOOL isFrontMost = [frontMostApp.bundleIdentifier isEqualToString:identifier];
-    BOOL isUILocked = [[%c(SBLockScreenManager) sharedInstance] isUILocked];
+    BOOL isUILocked = [[objc_getClass("SBLockScreenManager") sharedInstance] isUILocked];
     if (isUILocked) isFrontMost = NO;
     return isFrontMost;
 }
 
 -(void)updateLabelAccessory:(NSString *)identifier{
     dispatch_async(dispatch_get_main_queue(), ^{
-        [[((SBIconController *)[%c(SBIconController) sharedInstance]).model applicationIconForBundleIdentifier:identifier] _notifyAccessoriesDidUpdate];
+        [[((SBIconController *)[objc_getClass("SBIconController") sharedInstance]).model applicationIconForBundleIdentifier:identifier] _notifyAccessoriesDidUpdate];
         [self updateLabelAccessoryForDockItem:identifier];
     });
 }
@@ -148,7 +148,7 @@
 -(void)_retireAllScenesIn:(NSMutableArray *)identifiers{
     HBLogDebug(@"Retiring all scenes in %@", identifiers);
     
-    FBSceneManager *sceneManager  = [%c(FBSceneManager) sharedInstance];
+    FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
     NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
     
     NSMutableArray *toBeRemovedQueuedIdentifiers = [[NSMutableArray alloc] init];
@@ -171,7 +171,7 @@
             
             [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:nil];
             
-            //SBApplicationController *sbAppController = [%c(SBApplicationController) sharedInstance];
+            //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
             //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
             //HBLogDebug(@"taskstate for %@: %lld", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.taskState);
             //HBLogDebug(@"running for %@: %@", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.running?@"YES":@"NO");
@@ -213,7 +213,7 @@
 -(void)_retireScene:(NSString *)identifier{
     HBLogDebug(@"Retiring %@", identifier);
     
-    FBSceneManager *sceneManager  = [%c(FBSceneManager) sharedInstance];
+    FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
     NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
     
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
@@ -229,7 +229,7 @@
             
             [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:nil];
             
-            //SBApplicationController *sbAppController = [%c(SBApplicationController) sharedInstance];
+            //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
             //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
             //HBLogDebug(@"taskstate for %@: %lld", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.taskState);
             //HBLogDebug(@"running for %@: %@", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.running?@"YES":@"NO");
@@ -256,9 +256,7 @@
 }
 
 -(int)pidForBundleIdentifier:(NSString *)bundleIdentifier{
-    FBProcessManager *processManager  = [%c(FBProcessManager) sharedInstance];
-    FBProcess *proc = [[processManager processesForBundleIdentifier:bundleIdentifier] firstObject];
-    return proc.pid;
+    return [[objc_getClass("FBSSystemService") sharedService] pidForApplication:bundleIdentifier];
 }
 
 -(void)terminateProcess:(id)timer{
@@ -268,15 +266,7 @@
 
 -(void)_terminateProcess:(NSString *)identifier{
     HBLogDebug(@"Terminating %@", identifier);
-    FBProcessManager *processManager  = [%c(FBProcessManager) sharedInstance];
-    FBProcess *proc = [[processManager processesForBundleIdentifier:identifier] firstObject];
-    if (proc.pid > 0){
-        HBLogDebug(@"pid for %@: %d", identifier, proc.pid);
-        NSArray *taskArgs = @[@"-KILL", [NSString stringWithFormat:@"%d", proc.pid]];
-        NSTask * task = [[NSTask alloc] init];
-        [task setLaunchPath:@"/bin/kill"];
-        [task setArguments:taskArgs];
-        [task launch];
+    [[objc_getClass("FBSSystemService") sharedService] terminateApplication:identifier forReason:FBSTerminationReasonUserInitiated andReport:NO withDescription:nil completion:^(NSInteger result){
         [self.queuedIdentifiers removeObject:identifier];
         [self.immortalIdentifiers removeObject:identifier];
         [self.advancedMonitoringIdentifiers removeObject:identifier];
@@ -286,31 +276,30 @@
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
             [self updateDarkWakeState];
         });
-        HBLogDebug(@"Terminated %@", identifier);
-    }
-    //[self.ipcCenter sendMessageAndReceiveReplyName:@"terminateProcess" userInfo:userInfo];
+        HBLogDebug(@"Terminated %@, with result: %ld", identifier, result);
+    }];
 }
 
 
 -(void)invalidateQueue:(NSString *)identifier{
-    PCPersistentInterfaceManager *pctimermanager = [%c(PCPersistentInterfaceManager) sharedInstance];
-    NSMapTable *queues = MSHookIvar<NSMapTable *>(pctimermanager, "_delegatesAndQueues");
-    NSArray *timerinqueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerinqueues);
+    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+    NSArray *timerInQueues = [queues allKeys];
+    //HBLogDebug(@"allkeys: %@", timerInQueues);
     [self.immortalIdentifiers removeObject:identifier];
     [self.advancedMonitoringIdentifiers removeObject:identifier];
     [self.advancedMonitoringHistory removeObjectForKey:identifier];
     //[self.grantedOnceIdentifiers removeObject:identifier];
 
-    for (PCPersistentTimer *persistenttimer in timerinqueues){
-        PCSimpleTimer *_timer = MSHookIvar<PCSimpleTimer *>(persistenttimer, "_simpleTimer");
-        NSString *serviceindentifier = MSHookIvar<NSString *>(_timer, "_serviceIdentifier");
+    for (PCPersistentTimer *persistentTimer in timerInQueues){
+        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+        NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
         //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
         if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
             [self.queuedIdentifiers removeObject:identifier];
             //[self updateLabelAccessory:identifier];
-            [_timer invalidate];
-            _timer = nil;
+            [simpleTimer invalidate];
+            simpleTimer = nil;
             HBLogDebug(@"Invalidated %@", identifier);
             break;
         }
@@ -320,10 +309,10 @@
 }
 
 -(void)invalidateAllQueues{
-    PCPersistentInterfaceManager *pctimermanager = [%c(PCPersistentInterfaceManager) sharedInstance];
-    NSMapTable *queues = MSHookIvar<NSMapTable *>(pctimermanager, "_delegatesAndQueues");
-    NSArray *timerinqueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerinqueues);
+    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+    NSArray *timerInQueues = [queues allKeys];
+    //HBLogDebug(@"allkeys: %@", timerInQueues);
     for (NSString *identifier in self.immortalIdentifiers){
         [self _retireScene:identifier];
         [self.immortalIdentifiers removeObject:identifier];
@@ -334,27 +323,27 @@
     }
     
     
-    for (PCPersistentTimer *persistenttimer in timerinqueues){
-        PCSimpleTimer *_timer = MSHookIvar<PCSimpleTimer *>(persistenttimer, "_simpleTimer");
-        NSString *serviceindentifier = MSHookIvar<NSString *>(_timer, "_serviceIdentifier");
+    for (PCPersistentTimer *persistentTimer in timerInQueues){
+        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+        NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
         //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
         if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
             NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
             [self _retireScene:identifier];
             [self.queuedIdentifiers removeObject:identifier];
             [self updateLabelAccessory:identifier];
-            [_timer invalidate];
-            _timer = nil;
+            [simpleTimer invalidate];
+            simpleTimer = nil;
             HBLogDebug(@"Invalidated %@", identifier);
         }
     }
 }
 
 -(void)invalidateAllQueuesIn:(NSArray *)identifiers{
-    PCPersistentInterfaceManager *pctimermanager = [%c(PCPersistentInterfaceManager) sharedInstance];
-    NSMapTable *queues = MSHookIvar<NSMapTable *>(pctimermanager, "_delegatesAndQueues");
-    NSArray *timerinqueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerinqueues);
+    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+    NSArray *timerInQueues = [queues allKeys];
+    //HBLogDebug(@"allkeys: %@", timerInQueues);
     
     for (NSString *identifier in identifiers){
         [self _retireScene:identifier];
@@ -365,9 +354,9 @@
         [self updateLabelAccessory:identifier];
     }
     
-    for (PCPersistentTimer *persistenttimer in timerinqueues){
-        PCSimpleTimer *_timer = MSHookIvar<PCSimpleTimer *>(persistenttimer, "_simpleTimer");
-        NSString *serviceindentifier = MSHookIvar<NSString *>(_timer, "_serviceIdentifier");
+    for (PCPersistentTimer *persistentTimer in timerInQueues){
+        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+        NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
         //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
         if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
             NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
@@ -375,8 +364,8 @@
                 [self _retireScene:identifier];
                 [self.queuedIdentifiers removeObject:identifier];
                 [self updateLabelAccessory:identifier];
-                [_timer invalidate];
-                _timer = nil;
+                [simpleTimer invalidate];
+                simpleTimer = nil;
                 HBLogDebug(@"Invalidated %@", identifier);
             }
         }
@@ -385,7 +374,7 @@
 
 -(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime{
     
-    PCPersistentTimer *timer = [[%c(PCPersistentTimer) alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully?@selector(retireScene:):@selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
+    PCPersistentTimer *timer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully?@selector(retireScene:):@selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
     
     [timer setMinimumEarlyFireProportion:1];
     
@@ -399,7 +388,7 @@
     
     [self.queuedIdentifiers addObject:identifier];
     [self updateLabelAccessory:identifier];
-    //SBApplicationController *sbAppController = [%c(SBApplicationController) sharedInstance];
+    //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
     //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
     //[sbApp _setNewlyInstalled:YES];
 }
@@ -754,7 +743,7 @@
 
 -(void)startAdvancedMonitoringWithInterval:(double)interval{
     if (!self.advancedMonitoringTimer){
-        self.advancedMonitoringTimer = [[%c(PCPersistentTimer) alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:interval] serviceIdentifier:@"com.udevs.bakgrunnur-advanced-monitoring" target:self selector:@selector(monitoringUsage:) userInfo:@{@"scheduledCall":@YES}];
+        self.advancedMonitoringTimer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:interval] serviceIdentifier:@"com.udevs.bakgrunnur-advanced-monitoring" target:self selector:@selector(monitoringUsage:) userInfo:@{@"scheduledCall":@YES}];
         
         [self.advancedMonitoringTimer setMinimumEarlyFireProportion:1];
         
@@ -785,21 +774,21 @@
     BOOL isEnabled = [enabledIdentifier containsObject:bundleIdentifier];
     
     if (quickActionMaster){
-        SBSApplicationShortcutItem *item = [[%c(SBSApplicationShortcutItem) alloc] init];
+        SBSApplicationShortcutItem *item = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
         item.localizedTitle = @"Bakgrunnur";
         item.localizedSubtitle = isEnabled ? @"Disable" : @"Enable";
         item.bundleIdentifierToLaunch = bundleIdentifier;
         item.type = @"BakgrunnurShortcut";
-        item.icon = [[%c(SBSApplicationShortcutSystemPrivateIcon) alloc] initWithSystemImageName:@"hourglass"];
+        item.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"hourglass"];
         [stackedShortcuts addObject:item];
     }
     
     if (!isEnabled && quickActionOnce){
-        SBSApplicationShortcutItem *itemOnce = [[%c(SBSApplicationShortcutItem) alloc] init];
+        SBSApplicationShortcutItem *itemOnce = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
         itemOnce.localizedTitle = @"Bakgrunnur";
         itemOnce.bundleIdentifierToLaunch = bundleIdentifier;
         itemOnce.type = @"BakgrunnurShortcut";
-        itemOnce.icon = [[%c(SBSApplicationShortcutSystemPrivateIcon) alloc] initWithSystemImageName:@"1.circle"];
+        itemOnce.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"1.circle"];
         itemOnce.localizedSubtitle = @"Enable Once";
         
         if ([self.queuedIdentifiers containsObject:bundleIdentifier] || [self.immortalIdentifiers containsObject:bundleIdentifier] || [self.advancedMonitoringIdentifiers containsObject:bundleIdentifier]){
@@ -1276,20 +1265,20 @@
     }
     if (payloadURL) opts[@"__PayloadURL"] = payloadURL;
     
-    FBProcessManager *fbAppProcManager = [%c(FBProcessManager) sharedInstance];
+    FBProcessManager *fbAppProcManager = [objc_getClass("FBProcessManager") sharedInstance];
     
     FBApplicationProcess *sbFBAppProc  = [[fbAppProcManager applicationProcessesForBundleIdentifier:@"com.apple.springboard"] firstObject];
     
-    FBSystemServiceOpenApplicationRequest *fbOpenAppRequest = [%c(FBSystemServiceOpenApplicationRequest) request];
+    FBSystemServiceOpenApplicationRequest *fbOpenAppRequest = [objc_getClass("FBSystemServiceOpenApplicationRequest") request];
     [fbOpenAppRequest setClientProcess:sbFBAppProc];
     [fbOpenAppRequest setTrusted:trusted];
     [fbOpenAppRequest setBundleIdentifier:bundleID];
     
-    FBSOpenApplicationOptions *fbOpenAppOpts = [%c(FBSOpenApplicationOptions) optionsWithDictionary:opts];
+    FBSOpenApplicationOptions *fbOpenAppOpts = [objc_getClass("FBSOpenApplicationOptions") optionsWithDictionary:opts];
     [fbOpenAppRequest setOptions:fbOpenAppOpts];
     
-    FBSystemService *sysService = [%c(FBSystemService) sharedInstance];
-    SBMainWorkspace *sbMainWS = [%c(SBMainWorkspace) sharedInstance];
+    FBSystemService *sysService = [objc_getClass("FBSystemService") sharedInstance];
+    SBMainWorkspace *sbMainWS = [objc_getClass("SBMainWorkspace") sharedInstance];
 
     
     [sbMainWS systemService:sysService handleOpenApplicationRequest:fbOpenAppRequest withCompletion:^(NSError *error){
