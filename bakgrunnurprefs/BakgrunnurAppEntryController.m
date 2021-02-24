@@ -31,6 +31,18 @@
         [enabledAppNotificationsSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
         [appEntrySpecifiers addObject:enabledAppNotificationsSpec];
         
+        //Persistence once
+        PSSpecifier *persistenceOnceGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        [persistenceOnceGroupSpec setProperty:[NSString stringWithFormat:@"Keep \"Enable Once\" token for %@ alive until being forcefully terminated via app switcher. Token will be revoked whenever %@ is active again when this setting is disabled.", self.title, self.title] forKey:@"footerText"];
+        [appEntrySpecifiers addObject:persistenceOnceGroupSpec];
+        
+        PSSpecifier *persistenceOnceSpec = [PSSpecifier preferenceSpecifierNamed:@"Persistence Once Token" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [persistenceOnceSpec setProperty:@"Persistence Once Token" forKey:@"label"];
+        [persistenceOnceSpec setProperty:@"persistenceOnce" forKey:@"key"];
+        [persistenceOnceSpec setProperty:@NO forKey:@"default"];
+        [persistenceOnceSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+        [persistenceOnceSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+        [appEntrySpecifiers addObject:persistenceOnceSpec];
         
         //Dark wake
         PSSpecifier *darkWakeGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];

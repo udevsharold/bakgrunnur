@@ -72,8 +72,9 @@
             if (!toggleVal){
                 BKGBakgrunnur *bakgrunnur = [NSClassFromString(@"BKGBakgrunnur") sharedInstance];
                 BOOL enabledOnce = [bakgrunnur.grantedOnceIdentifiers containsObject:frontMostApp.bundleIdentifier];
-                
-                [self addActionWithTitle:(enabledOnce?@"Disable Once":@"Enable Once") subtitle:frontMostApp.displayName glyph:[UIImage systemImageNamed:@"1.circle"] handler:^{
+                BOOL isPersistenceOnce = item[@"persistenceOnce"] ? [item[@"persistenceOnce"] boolValue] : NO;
+
+                [self addActionWithTitle:([NSString stringWithFormat:@"%@ Once%@", enabledOnce?@"Disable":@"Enable", isPersistenceOnce?@" (Persistence)":@""]) subtitle:frontMostApp.displayName glyph:[UIImage systemImageNamed:@"1.circle"] handler:^{
                     if (!enabledOnce){
                         [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostApp.bundleIdentifier];
                         [bakgrunnur.grantedOnceIdentifiers addObject:frontMostApp.bundleIdentifier];

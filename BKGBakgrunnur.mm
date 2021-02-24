@@ -789,10 +789,18 @@
         itemOnce.bundleIdentifierToLaunch = bundleIdentifier;
         itemOnce.type = @"BakgrunnurShortcut";
         itemOnce.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"1.circle"];
-        itemOnce.localizedSubtitle = @"Enable Once";
+        if ([persistenceOnce containsObject:bundleIdentifier]){
+            itemOnce.localizedSubtitle = @"Enable Once (Persistence)";
+        }else{
+            itemOnce.localizedSubtitle = @"Enable Once";
+        }
         
         if ([self.queuedIdentifiers containsObject:bundleIdentifier] || [self.immortalIdentifiers containsObject:bundleIdentifier] || [self.advancedMonitoringIdentifiers containsObject:bundleIdentifier]){
-            itemOnce.localizedSubtitle = @"Disable Once";
+            if ([persistenceOnce containsObject:bundleIdentifier]){
+                itemOnce.localizedSubtitle = @"Disable Once (Persistence)";
+            }else{
+                itemOnce.localizedSubtitle = @"Disable Once";
+            }
         }
         
         [stackedShortcuts addObject:itemOnce];

@@ -15,6 +15,7 @@ SBFloatingDockView *floatingDockView;
 double globalTimeSpan = 1800.0/2.0;
 BOOL quickActionMaster = YES;
 BOOL quickActionOnce = NO;
+NSArray *persistenceOnce;
 
 static BOOL firstInit = YES;
 static long long preferredAccessoryType = 2;
@@ -60,7 +61,7 @@ static BOOL isFolderTransitioning = NO;
     %orig;
     if (enabled){
         BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
-        if ([enabledIdentifier containsObject:self.bundleIdentifier]){
+        if ([enabledIdentifier containsObject:self.bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:self.bundleIdentifier]){
             [bakgrunnur.grantedOnceIdentifiers removeObject:self.bundleIdentifier];
             [bakgrunnur invalidateQueue:self.bundleIdentifier];
             HBLogDebug(@"_didExitWithContext: %@", self.bundleIdentifier);
@@ -163,10 +164,10 @@ static BOOL isFolderTransitioning = NO;
             }else if (bundleIdentifier && [shortcut.localizedSubtitle isEqualToString:@"Enable"]){
                 [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
                 [bakgrunnur setObject:@{@"enabled":@YES} bundleIdentifier:bundleIdentifier];
-            }else if (bundleIdentifier && [shortcut.localizedSubtitle isEqualToString:@"Enable Once"]){
+            }else if (bundleIdentifier && [shortcut.localizedSubtitle containsString:@"Enable Once"]){
                 [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
                 [bakgrunnur.grantedOnceIdentifiers addObject:bundleIdentifier];
-            }else if (bundleIdentifier && [shortcut.localizedSubtitle isEqualToString:@"Disable Once"]){
+            }else if (bundleIdentifier && [shortcut.localizedSubtitle containsString:@"Disable Once"]){
                 //[bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
                 [bakgrunnur invalidateQueue:bundleIdentifier];
                 [bakgrunnur _retireScene:bundleIdentifier];
@@ -323,10 +324,9 @@ static BOOL isFolderTransitioning = NO;
                         [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                     }
                 }else{
-                    double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
+                    double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                     expiration = expiration < 0 ? defaultExpirationTime : expiration;
                     expiration = expiration == 0 ? 1 : expiration;
-                    expiration = !expiration ? defaultExpirationTime : expiration;
                     
                     HBLogDebug(@"expiration %f", expiration);
                     [bakgrunnur queueProcess:scene.clientProcess.identity.embeddedApplicationIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
@@ -381,7 +381,7 @@ static BOOL isFolderTransitioning = NO;
                     
                     BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:frontMostApp.bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:frontMostApp.bundleIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:frontMostApp.bundleIdentifier];
                     
-                    if (alreadyQueued){
+                    if (alreadyQueued && ![persistenceOnce containsObject:frontMostApp.bundleIdentifier]){
                         [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostApp.bundleIdentifier];
                         HBLogDebug(@"Revoked \"Once\" token for %@", frontMostApp.bundleIdentifier);
                     }
@@ -413,7 +413,7 @@ static BOOL isFolderTransitioning = NO;
                 
                 HBLogDebug(@"Deferred backgrounding for %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
             }
-        }else if (([enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]) && !(proc.pid > 0)){
+        }else if (([enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || (![persistenceOnce containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier])) && !(proc.pid > 0)){
             [bakgrunnur.grantedOnceIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             [bakgrunnur invalidateQueue:scene.clientProcess.identity.embeddedApplicationIdentifier];
         }
@@ -427,11 +427,18 @@ static BOOL isFolderTransitioning = NO;
 }
 %end
 
-static NSArray *getArray(NSString *keyName, NSString *identifier, BOOL enabled){
-    
-    NSArray *array = enabled ? [prefs[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"enabled = YES"]] : [prefs[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"enabled = NO"]];
+static NSArray *getArrayWithFormat(NSString *keyName, NSString *identifier, NSString *format){
+    NSArray *array = [prefs[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:format]];
     NSArray *filteredArray = [array valueForKey:identifier];
     return filteredArray;
+}
+
+static NSArray *getEnabledArray(BOOL enabled){
+    return getArrayWithFormat(@"enabledIdentifier", @"identifier", enabled ? @"enabled = YES" : @"enabled = NO");
+}
+
+static NSArray *getPersistenceOnceArray(){
+    return getArrayWithFormat(@"enabledIdentifier", @"identifier", @"persistenceOnce = YES");
 }
 
 static NSArray *getAllEntries(NSString *keyName, NSString *keyIdentifier){
@@ -452,14 +459,15 @@ static void reloadPrefs(){
     enabled = prefs[@"enabled"] ?  [prefs[@"enabled"] boolValue] : YES;
     quickActionMaster = prefs[@"quickActionMaster"] ?  [prefs[@"quickActionMaster"] boolValue] : YES;
     quickActionOnce = prefs[@"quickActionOnce"] ?  [prefs[@"quickActionOnce"] boolValue] : NO;
+    persistenceOnce = getPersistenceOnceArray();
     
     BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
     
     if (prefs && [prefs[@"enabledIdentifier"] firstObject] != nil){
-        enabledIdentifier = getArray(@"enabledIdentifier", @"identifier", YES);
+        enabledIdentifier = getEnabledArray(YES);
         allEntriesIdentifier = getAllEntries(@"enabledIdentifier", @"identifier");
         if (!firstInit){
-            NSMutableArray *disabledIdentifier = [getArray(@"enabledIdentifier", @"identifier", NO) mutableCopy];
+            NSMutableArray *disabledIdentifier = [getEnabledArray(NO) mutableCopy];
             [disabledIdentifier removeObjectsInArray:bakgrunnur.grantedOnceIdentifiers];
             [bakgrunnur invalidateAllQueuesIn:disabledIdentifier];
         }
@@ -481,9 +489,8 @@ static void reloadPrefs(){
     preferredAccessoryType = prefs[@"preferredAccessoryType"] ? [prefs[@"preferredAccessoryType"] longLongValue] : 2;
     showIndicatorOnDock = prefs[@"showIndicatorOnDock"] ? [prefs[@"showIndicatorOnDock"] boolValue] : YES;
     //showForceTouchShortcut = prefs[@"showForceTouchShortcut"] ? [prefs[@"showForceTouchShortcut"] boolValue] : YES;
-    globalTimeSpan = prefs[@"timeSpan"] ? [prefs[@"timeSpan"] doubleValue]/2.0 : 1800.0/2.0;
+    globalTimeSpan = (prefs[@"timeSpan"] && [prefs[@"timeSpan"] length] > 0) ? [prefs[@"timeSpan"] doubleValue]/2.0 : 1800.0/2.0;
     globalTimeSpan = globalTimeSpan <= 0.0 ? 1.0 : globalTimeSpan;
-    globalTimeSpan = !globalTimeSpan ? 1.0 : globalTimeSpan;
     
     
     if (enabled){
@@ -572,10 +579,10 @@ static void cliRequest(){
                                 [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                             }
                         }else{
-                            double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
+                            double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                             expiration = expiration < 0 ? defaultExpirationTime : expiration;
                             expiration = expiration == 0 ? 1 : expiration;
-                            expiration = !expiration ? defaultExpirationTime : expiration;
+
                             [bakgrunnur queueProcess:scene.clientProcess.identity.embeddedApplicationIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
                         }
                         

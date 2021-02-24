@@ -8,3 +8,4 @@ extern SBFloatingDockView *floatingDockView;
 extern double globalTimeSpan;
 extern BOOL quickActionMaster;
 extern BOOL quickActionOnce;
+extern NSArray *persistenceOnce;
