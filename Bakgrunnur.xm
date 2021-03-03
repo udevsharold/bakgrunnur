@@ -22,7 +22,192 @@ static long long preferredAccessoryType = 2;
 static BOOL showIndicatorOnDock = NO;
 static BOOL mainWSStarted = NO;
 static BOOL isFolderTransitioning = NO;
+static NSString *lastAppBundleIdentifier;
 
+static NSString* frontMostAppBundleIdentifier(){
+    if (mainWSStarted){
+        SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
+        return frontMostApp.bundleIdentifier;
+    }
+    return nil;
+}
+
+static void sceneMovedToForeground(FBScene *scene){
+    if (enabled){
+        NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+        
+        BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
+        if ([enabledIdentifier
+             containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]){
+            //NSUInteger identifierIdx = [enabledIdentifier indexOfObject:bundleIdentifier];
+            //BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] > 1) : NO;
+            //if (isImmortal){
+            //[[BKGBakgrunnur sharedInstance].immortalIdentifiers removeObject:bundleIdentifier];
+            //}else{
+            /*
+             if ([bakgrunnur.queuedIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:bundleIdentifier]){
+             [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
+             }
+             */
+            [bakgrunnur invalidateQueue:bundleIdentifier];
+            HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
+        }
+    }
+    
+}
+
+static void sceneMovedToBackground(FBScene *scene){
+    
+    if (enabled){
+        NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+        
+        BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
+        //HBLogDebug(@"bakgrunnur.grantedOnceIdentifiers: %@", bakgrunnur.grantedOnceIdentifiers);
+        BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:bundleIdentifier];
+        
+        if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && (![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]) && scene.valid && !alreadyQueued){
+            
+            NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
+            BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 2) : NO;
+            BOOL isAdvancedMonitoring = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 3) : NO;
+            BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
+            //[bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
+            [bakgrunnur invalidateQueue:bundleIdentifier];
+            if (isImmortal || isAdvancedMonitoring){
+                [bakgrunnur.immortalIdentifiers addObject:bundleIdentifier];
+                [bakgrunnur updateLabelAccessory:bundleIdentifier];
+                if (isAdvancedMonitoring){
+                    [bakgrunnur.advancedMonitoringIdentifiers addObject:bundleIdentifier];
+                    [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
+                }
+            }else{
+                double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
+                expiration = expiration < 0 ? defaultExpirationTime : expiration;
+                expiration = expiration == 0 ? 1 : expiration;
+                
+                HBLogDebug(@"expiration %f", expiration);
+                [bakgrunnur queueProcess:bundleIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
+            }
+            if (enabledAppNotifications){
+                [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:4 forBundleIdentifier:bundleIdentifier];
+            }
+            
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                if ([bakgrunnur.darkWakeIdentifiers containsObject:bundleIdentifier] || ([bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier] && [bakgrunnur.dormantDarkWakeIdentifiers containsObject:bundleIdentifier])){
+                    [bakgrunnur updateDarkWakeState];
+                }
+            });
+            
+            
+            HBLogDebug(@"Queued %@ for invalidation", bundleIdentifier);
+        }else{
+            [bakgrunnur.retiringIdentifiers removeObject:bundleIdentifier];
+        }
+    }
+}
+
+static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSettings *settings){
+    if (enabled){
+        NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+        NSString *frontMostAppID = frontMostAppBundleIdentifier();
+        
+        BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
+        FBProcessManager *processManager  = [%c(FBProcessManager) sharedInstance];
+        FBProcess *proc = [[processManager processesForBundleIdentifier:bundleIdentifier] firstObject];
+        
+        NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
+        
+        BOOL isiOS14 = NO;
+        if (@available(iOS 14.0, *)){
+            isiOS14 = YES;
+        }
+        
+        if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]  && (proc.pid > 0)){
+            
+            
+            BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
+            
+            BOOL isFrontMost = NO;
+            BOOL isUILocked = [[%c(SBLockScreenManager) sharedInstance] isUILocked];
+            
+            if (mainWSStarted){
+                isFrontMost = [frontMostAppID isEqualToString:bundleIdentifier];
+                if (isUILocked){
+                    isFrontMost = NO;
+                }
+                if (isFrontMost && frontMostAppID && !isUILocked){
+                    
+                    
+                    BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:frontMostAppID] || [bakgrunnur.immortalIdentifiers containsObject:frontMostAppID] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:frontMostAppID];
+                    
+                    if (alreadyQueued && ![persistenceOnce containsObject:frontMostAppID]){
+                        [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostAppID];
+                        HBLogDebug(@"Revoked \"Once\" token for %@", frontMostAppID);
+                    }
+                    
+                    
+                    [bakgrunnur invalidateQueue:frontMostAppID];
+                    
+                    if (isiOS14){
+                        if (![bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                            [bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
+                        }
+                    }
+                    
+                    if (enabledAppNotifications){
+                        [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:8 forBundleIdentifier:frontMostAppID];
+                    }
+                    
+                    
+                    HBLogDebug(@"Reset expiration for %@", frontMostAppID);
+                }else if (!isUILocked && !isFrontMost){
+                    if (isiOS14){
+                        if ([bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                            //[bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
+                            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                                sceneMovedToBackground(scene);
+                            });
+                        }
+                        
+                    }
+                }
+            }
+            
+            
+            if (isiOS14 && isUILocked){
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                    sceneMovedToBackground(scene);
+                });
+            }
+            
+            if ([settings respondsToSelector:@selector(setForeground:)]){
+                [settings setForeground:YES];
+                [settings setBackgrounded:NO];
+                
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                    if ([bakgrunnur.darkWakeIdentifiers containsObject:bundleIdentifier]){
+                        [bakgrunnur updateDarkWakeState];
+                    }
+                });
+                
+                //NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
+                // BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : YES;
+                //[settings setPrefersProcessTaskSuspensionWhileSceneForeground:enabledAppNotifications?!isFrontMost:[settings prefersProcessTaskSuspensionWhileSceneForeground]];
+                
+                HBLogDebug(@"Deferred backgrounding for %@", bundleIdentifier);
+            }
+            
+        }else if (([enabledIdentifier containsObject:bundleIdentifier] || (![persistenceOnce containsObject:bundleIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier])) && !(proc.pid > 0)){
+            [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
+            [bakgrunnur invalidateQueue:bundleIdentifier];
+        }
+        
+        
+        //else if (![enabledIdentifier containsObject:bundleIdentifier] && ([bakgrunnur.queuedIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:bundleIdentifier]){
+        //[bakgrunnur.retiringIdentifiers removeObject:bundleIdentifier];
+        //}
+    }
+}
 
 /*
  %hook SBMainSwitcherViewController
@@ -121,7 +306,16 @@ static BOOL isFolderTransitioning = NO;
                 isInFolder = YES;
             }
         }
-        if (([bakgrunnur.queuedIdentifiers containsObject:[self.icon applicationBundleID]] || [bakgrunnur.immortalIdentifiers containsObject:[self.icon applicationBundleID]] || (isInFolder && !isFolderTransitioning)) && (!self.labelHidden || (self.inDock && showIndicatorOnDock))){
+        
+        BOOL isInDock = NO;
+        if (@available(iOS 14.0, *)){
+            isInDock = [self.location containsString:@"Dock"];
+        }else{
+            isInDock = self.inDock;
+        }
+        
+        if (([bakgrunnur.queuedIdentifiers containsObject:[self.icon applicationBundleID]] || [bakgrunnur.immortalIdentifiers containsObject:[self.icon applicationBundleID]] || (isInFolder && !isFolderTransitioning)) && (!self.labelHidden || (isInDock && showIndicatorOnDock))){
+            
             if (isInFolder && ![bakgrunnur.pendingAccessoryUpdateFolderID containsObject:[self folder].uniqueIdentifier]){
                 [bakgrunnur.pendingAccessoryUpdateFolderID addObject:[self folder].uniqueIdentifier];
             }
@@ -272,84 +466,30 @@ static BOOL isFolderTransitioning = NO;
  %end
  */
 
+%group iOS13
 %hook FBSceneManager
-
 -(void)_noteSceneMovedToForeground:(FBScene *)scene{
     //HBLogDebug(@"_noteSceneMovedToForeground: %@", scene);
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        if (enabled){
-            BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
-            if ([enabledIdentifier
-                 containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                //NSUInteger identifierIdx = [enabledIdentifier indexOfObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                //BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] > 1) : NO;
-                //if (isImmortal){
-                //[[BKGBakgrunnur sharedInstance].immortalIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                //}else{
-                /*
-                 if ([bakgrunnur.queuedIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                 [bakgrunnur.grantedOnceIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                 }
-                 */
-                [bakgrunnur invalidateQueue:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                HBLogDebug(@"Reset expiration for %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
-            }
-        }
+        sceneMovedToForeground(scene);
     });
+    
 }
 
 -(void)_noteSceneMovedToBackground:(FBScene *)scene{
     //HBLogDebug(@"_noteSceneMovedToBackground: %@", [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication]);
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        if (enabled){
-            BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
-            //HBLogDebug(@"bakgrunnur.grantedOnceIdentifiers: %@", bakgrunnur.grantedOnceIdentifiers);
-            BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            
-            if (([enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]) && (![bakgrunnur.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]) && scene.valid && !alreadyQueued){
-                
-                NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 2) : NO;
-                BOOL isAdvancedMonitoring = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 3) : NO;
-                BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
-                //[bakgrunnur.grantedOnceIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                [bakgrunnur invalidateQueue:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                if (isImmortal || isAdvancedMonitoring){
-                    [bakgrunnur.immortalIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                    [bakgrunnur updateLabelAccessory:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                    if (isAdvancedMonitoring){
-                        [bakgrunnur.advancedMonitoringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                        [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
-                    }
-                }else{
-                    double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
-                    expiration = expiration < 0 ? defaultExpirationTime : expiration;
-                    expiration = expiration == 0 ? 1 : expiration;
-                    
-                    HBLogDebug(@"expiration %f", expiration);
-                    [bakgrunnur queueProcess:scene.clientProcess.identity.embeddedApplicationIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
-                }
-                if (enabledAppNotifications){
-                    [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:4 forBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                }
-                
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                    if ([bakgrunnur.darkWakeIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                        [bakgrunnur updateDarkWakeState];
-                    }
-                });
-                
-                
-                HBLogDebug(@"Queued %@ for invalidation", scene.clientProcess.identity.embeddedApplicationIdentifier);
-            }else{
-                [bakgrunnur.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-        }
+        sceneMovedToBackground(scene);
     });
+    
 }
+%end
+%end
 
+
+%hook FBSceneManager
 -(void)_applyMutableSettings:(UIMutableApplicationSceneSettings *)settings toScene:(FBScene *)scene withTransitionContext:(id)transitionContext completion:(/*^block*/id)arg4{
     //HBLogDebug(@"withTransitionContext: %@",[[[transitionContext valueForKey:@"actions"] valueForKey:@"info"] valueForKey:@"intents"]);
     //HBLogDebug(@"scene: %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
@@ -357,73 +497,9 @@ static BOOL isFolderTransitioning = NO;
     //HBLogDebug(@"enabledIdentifier: %@", enabledIdentifier);
     
     //HBLogDebug(@"_scenesByID: %@", [self valueForKey:@"_scenesByID"]);
-    if (enabled){
-        BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
-        FBProcessManager *processManager  = [%c(FBProcessManager) sharedInstance];
-        FBProcess *proc = [[processManager processesForBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier] firstObject];
-        
-        NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-        
-        if (([enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]  && (proc.pid > 0)){
-            
-            BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
-            
-            
-            BOOL isFrontMost = NO;
-            if (mainWSStarted){
-                SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
-                isFrontMost = [frontMostApp.bundleIdentifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                BOOL isUILocked = [[%c(SBLockScreenManager) sharedInstance] isUILocked];
-                if (isUILocked){
-                    isFrontMost = NO;
-                }
-                if (isFrontMost && frontMostApp.bundleIdentifier && !isUILocked){
-                    
-                    BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:frontMostApp.bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:frontMostApp.bundleIdentifier] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:frontMostApp.bundleIdentifier];
-                    
-                    if (alreadyQueued && ![persistenceOnce containsObject:frontMostApp.bundleIdentifier]){
-                        [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostApp.bundleIdentifier];
-                        HBLogDebug(@"Revoked \"Once\" token for %@", frontMostApp.bundleIdentifier);
-                    }
-                    
-                    [bakgrunnur invalidateQueue:frontMostApp.bundleIdentifier];
-                    
-                    if (enabledAppNotifications){
-                        [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:8 forBundleIdentifier:frontMostApp.bundleIdentifier];
-                    }
-                    
-                    
-                    HBLogDebug(@"Reset expiration for %@", frontMostApp.bundleIdentifier);
-                }
-            }
-            
-            if ([settings respondsToSelector:@selector(setForeground:)]){
-                [settings setForeground:YES];
-                [settings setBackgrounded:NO];
-                
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                    if ([bakgrunnur.darkWakeIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                        [bakgrunnur updateDarkWakeState];
-                    }
-                });
-                
-                //NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                // BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : YES;
-                //[settings setPrefersProcessTaskSuspensionWhileSceneForeground:enabledAppNotifications?!isFrontMost:[settings prefersProcessTaskSuspensionWhileSceneForeground]];
-                
-                HBLogDebug(@"Deferred backgrounding for %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
-            }
-        }else if (([enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || (![persistenceOnce containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier])) && !(proc.pid > 0)){
-            [bakgrunnur.grantedOnceIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            [bakgrunnur invalidateQueue:scene.clientProcess.identity.embeddedApplicationIdentifier];
-        }
-        
-        
-        //else if (![enabledIdentifier containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] && ([bakgrunnur.queuedIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-        //[bakgrunnur.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-        //}
-    }
+    applySceneWithSettings(scene, settings);
     %orig;
+    
 }
 %end
 
@@ -582,7 +658,7 @@ static void cliRequest(){
                             double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                             expiration = expiration < 0 ? defaultExpirationTime : expiration;
                             expiration = expiration == 0 ? 1 : expiration;
-
+                            
                             [bakgrunnur queueProcess:scene.clientProcess.identity.embeddedApplicationIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
                         }
                         
@@ -607,10 +683,20 @@ static void cliRequest(){
                         
                         [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop){
                             if ([pending[@"identifier"] isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
-                    
-                                [sceneManager _noteSceneMovedToForeground:scene];
+                                
+                                if (@available(iOS 14.0, *)){
+                                    sceneMovedToForeground(scene);
+                                }else{
+                                    [sceneManager _noteSceneMovedToForeground:scene];
+                                }
+                                
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                                    [sceneManager _noteSceneMovedToBackground:scene];
+                                    
+                                    if (@available(iOS 14.0, *)){
+                                        sceneMovedToBackground(scene);
+                                    }else{
+                                        [sceneManager _noteSceneMovedToBackground:scene];
+                                    }
                                     
                                 });
                                 
@@ -637,6 +723,15 @@ static void preming(){
 
 %ctor{
     reloadPrefs();
+    
+    %init();
+    
+    if (@available(iOS 14.0, *)){
+        //already handled in methods
+    }else{
+        %init(iOS13);
+    }
+    
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)reloadPrefs, (CFStringRef)PREFS_CHANGED_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)cliRequest, (CFStringRef)CLI_REQUEST_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)resetAll, (CFStringRef)RESET_ALL_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);

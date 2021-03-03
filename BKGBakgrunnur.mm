@@ -49,7 +49,8 @@
         self.advancedMonitoringHistory = [[NSMutableDictionary alloc] init];
         self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
-
+        self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
+        
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -81,6 +82,7 @@
 
 -(void)update{
     self.darkWakeIdentifiers = [self darkWakers];
+    self.dormantDarkWakeIdentifiers = [self dormantDarkWakers];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         [self updateDarkWakeState];
     });
@@ -95,6 +97,10 @@
 
 -(NSArray *)darkWakers{
     return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = YES && darkWake = YES"];
+}
+
+-(NSArray *)dormantDarkWakers{
+    return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = NO && darkWake = YES"];
 }
 
 /*
@@ -127,11 +133,8 @@
 
 -(void)updateLabelAccessoryForDockItem:(NSString *)identifier{
     if (floatingDockView){
-        NSArray *fullIconsList = @[];
-        fullIconsList = [fullIconsList arrayByAddingObjectsFromArray:floatingDockView.recentIconListView.visibleIcons];
-        fullIconsList = [fullIconsList arrayByAddingObjectsFromArray:floatingDockView.recentIconListView.visibleIcons];
         
-        for (SBApplicationIcon *icon in fullIconsList){
+        for (SBApplicationIcon *icon in floatingDockView.recentIconListView.visibleIcons){
             if ([icon.applicationBundleID isEqualToString:identifier]){
                 [icon _notifyAccessoriesDidUpdate];
                 break;
@@ -161,15 +164,22 @@
         NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
         if ([identifiers containsObject:identifier]) {
             
+            
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
+            
+            
             
             FBSMutableSceneSettings *backgroundingSceneSettings = scene.mutableSettings;
             [backgroundingSceneSettings setForeground:NO];
             [backgroundingSceneSettings setBackgrounded:YES];
             
-            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:nil];
+            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:^{
+                if (@available(iOS 14.0, *)){
+                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+                }
+            }];
             
             //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
             //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
@@ -199,7 +209,8 @@
     [self.immortalIdentifiers removeObjectsInArray:toBeRemovedQueuedImmortalIdentifiers];
     [self.advancedMonitoringIdentifiers removeObjectsInArray:toBeRemovedAdvancedMonitoringIdentifiers];
     [self.grantedOnceIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
-
+    [self.userInitiatedIdentifiers removeObjectsInArray:identifiers];
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         [self updateDarkWakeState];
     });
@@ -219,15 +230,21 @@
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
         if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
             
+            
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
+            
             
             FBSMutableSceneSettings *backgroundingSceneSettings = scene.mutableSettings;
             [backgroundingSceneSettings setForeground:NO];
             [backgroundingSceneSettings setBackgrounded:YES];
             
-            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:nil];
+            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:^{
+                if (@available(iOS 14.0, *)){
+                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+                }
+            }];
             
             //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
             //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
@@ -244,6 +261,7 @@
             [self.grantedOnceIdentifiers removeObject:identifier];
             [self.advancedMonitoringHistory removeObjectForKey:identifier];
             [self updateLabelAccessory:identifier];
+            [self.userInitiatedIdentifiers removeObject:identifier];
             
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                 [self updateDarkWakeState];
@@ -273,6 +291,8 @@
         [self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
         [self updateLabelAccessory:identifier];
+        [self.userInitiatedIdentifiers removeObject:identifier];
+        
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
             [self updateDarkWakeState];
         });
@@ -289,8 +309,10 @@
     [self.immortalIdentifiers removeObject:identifier];
     [self.advancedMonitoringIdentifiers removeObject:identifier];
     [self.advancedMonitoringHistory removeObjectForKey:identifier];
+    [self.userInitiatedIdentifiers removeObject:identifier];
+    
     //[self.grantedOnceIdentifiers removeObject:identifier];
-
+    
     for (PCPersistentTimer *persistentTimer in timerInQueues){
         PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
         NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
@@ -319,6 +341,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
+        [self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
     
@@ -351,6 +374,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
+        [self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
     
@@ -1263,13 +1287,13 @@
     NSMutableDictionary *opts = [[NSMutableDictionary alloc] init];
     opts[@"__PayloadOptions"] = @{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"};
     //if (suspend){
-        opts[@"__ActivateSuspended"] = @(suspend);
-        opts[@"__PromptUnlockDevice"] = @YES;
-        opts[@"__UnlockDevice"] = @YES;
-        opts[@"processLaunchIntent"] = @4;
+    opts[@"__ActivateSuspended"] = @(suspend);
+    opts[@"__PromptUnlockDevice"] = @YES;
+    opts[@"__UnlockDevice"] = @YES;
+    opts[@"processLaunchIntent"] = @4;
     //}
     if (suspend){
-    opts[@"__SBWorkspaceOpenOptionUnlockResult"] = @1;
+        opts[@"__SBWorkspaceOpenOptionUnlockResult"] = @1;
     }
     if (payloadURL) opts[@"__PayloadURL"] = payloadURL;
     
@@ -1287,7 +1311,7 @@
     
     FBSystemService *sysService = [objc_getClass("FBSystemService") sharedInstance];
     SBMainWorkspace *sbMainWS = [objc_getClass("SBMainWorkspace") sharedInstance];
-
+    
     
     [sbMainWS systemService:sysService handleOpenApplicationRequest:fbOpenAppRequest withCompletion:^(NSError *error){
         if (completionHandler){

@@ -687,6 +687,8 @@
 @property (assign,getter=isLabelHidden,nonatomic) BOOL labelHidden;
 @property (assign,getter=isInDock,nonatomic) BOOL inDock;
 @property (nonatomic,retain) SBFolderIcon * folderIcon;
+@property (nonatomic,copy) NSString * location; // iOS 14 - SBIconLocationDock | SBIconLocationRoot | SBIconLocationFolder | SBIconLocationFloatingDockSuggestions
+@property (nonatomic,copy,readonly) NSString * representedFolderIconLocation; // iOS 14 - SBIconLocationFolder
 -(void)setLabelAccessoryHidden:(BOOL)arg1 ;
 -(void)_updateLabelAccessoryView;
 -(BOOL)isDragging;

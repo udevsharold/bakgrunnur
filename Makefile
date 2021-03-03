@@ -1,13 +1,9 @@
+export ARCHS = arm64 arm64e
 export DEBUG = 0
 export FINALPACKAGE = 1
 
-export XCODE_12_SLICE ?= 0
-ifeq ($(XCODE_12_SLICE), 1)
-	export ARCHS = arm64e
-else
-	export ARCHS = arm64 arm64e
-	export PREFIX = $(THEOS)/toolchain/Xcode11.xctoolchain/usr/bin/
-endif
+export PREFIX = $(THEOS)/toolchain/Xcode11.xctoolchain/usr/bin/
+
 
 TARGET = iphone:clang:latest:11.0
 

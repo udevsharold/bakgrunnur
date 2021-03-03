@@ -16,6 +16,8 @@
 @property(nonatomic, strong) __block NSDictionary *cachedNetstatOne;
 @property(nonatomic, strong) __block NSDictionary *cachedNetstatTwo;
 @property(nonatomic, strong) NSMutableArray *grantedOnceIdentifiers;
+@property(nonatomic, strong) NSMutableArray *userInitiatedIdentifiers;
+@property(nonatomic, strong) NSArray *dormantDarkWakeIdentifiers;
 
 +(instancetype)sharedInstance;
 -(void)setObject:(NSDictionary *)objectDict bundleIdentifier:(NSString *)bundleIdentifier;
