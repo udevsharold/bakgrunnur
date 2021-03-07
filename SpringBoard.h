@@ -735,6 +735,7 @@
 @property (nonatomic,copy) NSString * localizedSubtitle;
 @property (nonatomic,copy) NSString * bundleIdentifierToLaunch;
 @property (nonatomic,copy) SBSApplicationShortcutIcon * icon;
+@property (assign,nonatomic) unsigned long long activationMode; 
 @end
 
 //iOS 11/12 only

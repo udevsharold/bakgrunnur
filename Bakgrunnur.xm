@@ -180,7 +180,12 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                 });
             }
             
-            if ([settings respondsToSelector:@selector(setForeground:)]){
+            BOOL userInitiated = YES;
+            if (isiOS14 && ![bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                userInitiated = NO;
+            }
+            
+            if ([settings respondsToSelector:@selector(setForeground:)] && userInitiated){
                 [settings setForeground:YES];
                 [settings setBackgrounded:NO];
                 
@@ -331,6 +336,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
 }
 
 -(NSArray *)applicationShortcutItems{
+    NSArray *ret = %orig;
     if (enabled && (quickActionMaster || quickActionOnce)){
         NSString *bundleIdentifier;
         if ([self respondsToSelector:@selector(applicationBundleIdentifier)]) {
@@ -338,13 +344,12 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
         } else if ([self respondsToSelector:@selector(applicationBundleIdentifierForShortcuts)]) {
             bundleIdentifier = [self applicationBundleIdentifierForShortcuts]; //iOS 13.2.2
         }
-        //if (![bundleIdentifier isEqualToString:@"com.apple.Preferences"]) return %orig;
         if (bundleIdentifier){
-            NSArray<SBSApplicationShortcutItem*> *stackedShortcuts = [[BKGBakgrunnur sharedInstance] stackBakgrunnurShortcut:%orig bundleIdentifier:bundleIdentifier];
+            NSArray<SBSApplicationShortcutItem*> *stackedShortcuts = [[BKGBakgrunnur sharedInstance] stackBakgrunnurShortcut:ret bundleIdentifier:bundleIdentifier];
             return stackedShortcuts;
         }
     }
-    return %orig;
+    return ret;
 }
 
 +(void)activateShortcut:(SBSApplicationShortcutItem *)shortcut withBundleIdentifier:(NSString *)bundleIdentifier forIconView:(id)arg3{
