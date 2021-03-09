@@ -309,7 +309,7 @@
     [self.immortalIdentifiers removeObject:identifier];
     [self.advancedMonitoringIdentifiers removeObject:identifier];
     [self.advancedMonitoringHistory removeObjectForKey:identifier];
-    [self.userInitiatedIdentifiers removeObject:identifier];
+    //[self.userInitiatedIdentifiers removeObject:identifier];
     
     //[self.grantedOnceIdentifiers removeObject:identifier];
     
@@ -341,7 +341,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
-        [self.userInitiatedIdentifiers removeObject:identifier];
+        //[self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
     
@@ -374,7 +374,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
-        [self.userInitiatedIdentifiers removeObject:identifier];
+        //[self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
     
