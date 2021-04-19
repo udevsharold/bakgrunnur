@@ -8,6 +8,12 @@
 +(id)identityForEmbeddedApplicationIdentifier:(id)arg1 ;
 @end
 
+
+@interface RBSDaemonProcessIdentity : RBSProcessIdentity
+-(NSString *)daemonJobLabel;
+@end
+
+
 @interface RBProcessState : NSObject
 @property (nonatomic,copy,readonly) RBSProcessIdentity * identity;
 @property (nonatomic,readonly) unsigned char role;
@@ -171,6 +177,7 @@
 @property (nonatomic,readonly) BSProcessHandle * handle;
 @property (nonatomic,readonly) RBSProcessIdentity * identity;
 @property (nonatomic,copy,readonly) NSString * bundleIdentifier;
+@property (nonatomic,copy,readonly) NSString * executablePath;
 -(FBProcessState *)state;
 -(id)initWithHandle:(id)arg1 identity:(id)arg2 executionContext:(id)arg3 ;
 -(void)_queue_rebuildState;
@@ -200,7 +207,8 @@
 @property (nonatomic,copy) NSArray * occlusions;
 @property (assign,getter=isForeground,nonatomic) BOOL foreground;
 @property (assign,getter=isBackgrounded,nonatomic) BOOL backgrounded;
-@property (assign,nonatomic) double level; 
+@property (assign,nonatomic) double level;
+@property (assign,nonatomic) long long interruptionPolicy;
 -(void)setForeground:(BOOL)arg1 ;
 -(BOOL)isForeground;
 -(void)setBackgrounded:(BOOL)arg1 ;
@@ -214,15 +222,28 @@
 -(void)setPersistenceIdentifier:(NSString *)arg1 ;
 -(id)otherSettings;
 -(void)setOcclusions:(NSArray *)arg1;
--(void)setLevel:(double)arg1 ;;
+-(void)setLevel:(double)arg1 ;
+-(void)setOccluded:(BOOL)arg1 ;
 @end
 
 @interface UIMutableApplicationSceneSettings : FBSMutableSceneSettings
+@property (nonatomic,retain) NSString * persistenceIdentifier;
+@property (assign,nonatomic) BOOL idleModeEnabled;
 @end
 
 @interface FBSSceneSpecification : NSObject
 @property (nonatomic,readonly) NSString * uiSceneSessionRole;
 @end
+
+@protocol FBSceneClientProvider <NSObject>
+@required
+-(void)unregisterHost:(id)arg1;
+-(id)registerHost:(id)arg1 withSpecification:(id)arg2 settings:(id)arg3 initialClientSettings:(id)arg4 fromRemnant:(id)arg5;
+-(void)registerInvalidationAction:(id)arg1;
+
+@end
+
+
 
 @interface FBScene : NSObject
 @property (nonatomic,copy,readonly) FBSSceneSpecification * specification;
@@ -232,13 +253,22 @@
 @property (nonatomic,copy,readonly) NSString * workspaceIdentifier;
 @property (nonatomic,readonly) FBSSceneSettings * settings;
 @property (nonatomic,readonly) FBProcess * clientProcess;
+@property (nonatomic,readonly) id<FBSceneClientProvider> clientProvider;
 @property (getter=isValid,nonatomic,readonly) BOOL valid;
+@property (getter=_isInTransaction,nonatomic,readonly) BOOL _inTransaction;
+@property (nonatomic,readonly) unsigned long long _transactionID;
 -(void)updateUISettingsWithBlock:(/*^block*/id)arg1 ;
 -(void)updateSettingsWithBlock:(/*^block*/id)arg1 ;
 -(void)_applyUpdateWithContext:(id)arg1 completion:(/*^block*/id)arg2 ;
 -(unsigned long long)_beginTransaction;
 -(void)_setContentState:(long long)arg1 ;
 -(void)updateSettings:(id)arg1 withTransitionContext:(id)arg2 ;
+-(void)updateSettings:(id)arg1 withTransitionContext:(id)arg2 completion:(/*^block*/id)arg3 ;
+-(void)_setContentState:(long long)arg1 ;
+-(void)updateSettingsWithTransitionBlock:(/*^block*/id)arg1 ;
+-(void)_invalidateWithTransitionContext:(id)arg1 ;
+-(unsigned long long)_beginTransaction;
+-(void)_endTransaction:(unsigned long long)arg1 ;
 @end
 
 
@@ -261,11 +291,16 @@
 -(id)sceneWithIdentifier:(id)arg1 ;
 -(void)_applyMutableSettings:(id)arg1 toScene:(id)arg2 withTransitionContext:(id)arg3 completion:(/*^block*/id)arg4 ;
 -(void)destroyScene:(id)arg1 withTransitionContext:(id)arg2 ;
+-(void)_destroyScene:(id)arg1 withTransitionContext:(id)arg2 ;
+-(void)_updateScene:(id)arg1 withSettings:(id)arg2 transitionContext:(id)arg3 completion:(/*^block*/id)arg4 ;
+-(void)scene:(id)arg1 handleUpdateToSettings:(id)arg2 withTransitionContext:(id)arg3 completion:(/*^block*/id)arg4 ;
+
 @end
 
 @interface SBApplicationWakeScheduler : NSObject
 -(void)wakeImmediately;
 -(void)scheduleWakeForDate:(id)arg1 ;
+-(void)flushSnapshotsForAllScenes;
 @end
 
 @interface SBApplicationProcessState : NSObject
@@ -298,6 +333,7 @@
 -(void)_updateProcess:(id)arg1 withState:(id)arg2 ;
 -(void)_setNewlyInstalled:(BOOL)arg1 ;
 -(void)_setRecentlyUpdated:(BOOL)arg1 ;
+-(NSString *)bundleIdentifier;
 @end
 
 @interface SBApplicationController : NSObject
@@ -422,17 +458,6 @@
 
 
 
-
-@interface SBWorkspaceTransitionRequest : NSObject
-@property (nonatomic,retain) BSProcessHandle * originatingProcess;
-@end
-
-
-@interface SBMainWorkspaceTransitionRequest : SBWorkspaceTransitionRequest
-@end
-
-
-
 @interface BSEventQueueLock : NSObject
 @end
 
@@ -539,6 +564,25 @@
 +(id)sharedInstance;
 @end
 
+@interface SBWorkspaceTransitionContext : NSObject
+@end
+
+@interface SBWorkspaceApplicationSceneTransitionContext : SBWorkspaceTransitionContext
+-(void)setEntity:(id)arg1 forLayoutRole:(long long)arg2 ;
+-(id)entityForLayoutRole:(long long)arg1 ;
+@end
+
+
+@interface SBWorkspaceTransitionRequest : NSObject
+@property (nonatomic,retain) BSProcessHandle * originatingProcess;
+-(void)setApplicationContext:(SBWorkspaceApplicationSceneTransitionContext *)arg1 ;
+@end
+
+
+@interface SBMainWorkspaceTransitionRequest : SBWorkspaceTransitionRequest
+-(id)initWithDisplayConfiguration:(id)arg1 ;
+@end
+
 @interface SBMainWorkspace : SBWorkspace
 +(id)sharedInstance;
 +(id)_sharedInstanceWithNilCheckPolicy:(long long)arg1 ;
@@ -559,6 +603,7 @@
 -(BOOL)executeTransitionRequest:(id)arg1 ;
 -(void)setCurrentTransaction:(id)arg1 ;
 -(id)_transactionForTransitionRequest:(id)arg1 ;
+-(void)_destroyApplicationSceneEntity:(id)arg1 ;
 @end
 
 @interface RBConnectionListener : NSObject
@@ -868,5 +913,116 @@
 
 @interface SBSceneManagerReference : NSObject
 -(id)initWithDisplayIdentity:(id)arg1 ;
+@end
+
+@interface BSEventQueue : NSObject
+@property (nonatomic,copy,readonly) NSString * name;
+@property (getter=isLocked,nonatomic,readonly) BOOL locked;
+@property (getter=isEmpty,nonatomic,readonly) BOOL empty;
+@property (nonatomic,copy,readonly) NSArray * pendingEvents;
+@end
+
+@interface UIApplicationSceneDeactivationAssertion : NSObject
+-(void)acquire;
+-(void)acquireWithPredicate:(/*^block*/id)arg1 transitionContext:(id)arg2 ;
+@end
+
+@interface UIApplicationSceneDeactivationManager : NSObject
+-(void)_setDeactivationReasons:(unsigned long long)arg1 onScene:(FBScene *)arg2 withSettings:(UIMutableApplicationSceneSettings *)arg3 reason:(NSString *)arg4;
+-(void)_untrackScene:(id)arg1 ;
+-(void)endTrackingScene:(id)arg1 ;
+-(UIApplicationSceneDeactivationAssertion *)newAssertionWithReason:(long long)arg1 ;
+-(void)_updateScenesWithTransitionContext:(id)arg1 reason:(id)arg2 ;
+@end
+
+@interface SBSceneManagerCoordinator : NSObject
+@property (nonatomic,readonly) UIApplicationSceneDeactivationManager * sceneDeactivationManager;
++(id)sharedInstance;
++(id)mainDisplaySceneManager;
++(id)secureMainDisplaySceneManager;
+-(UIApplicationSceneDeactivationManager *)sceneDeactivationManager;
+@end
+
+@interface SBDeactivationSettings : NSObject
+-(void)setFlag:(long long)arg1 forDeactivationSetting:(unsigned)arg2 ;
+@end
+
+
+@interface SBApplication ()
+-(void) _setDeactivationSettings:(SBDeactivationSettings*)arg1;
+@end
+
+@interface BSTransaction : NSObject
+@end
+
+@interface SBTransaction : BSTransaction
+@end
+
+@interface SBWorkspaceTransaction : SBTransaction
+@end
+
+@interface SBMainWorkspaceTransaction : SBWorkspaceTransaction
+@end
+
+@interface SBToAppsWorkspaceTransaction : SBMainWorkspaceTransaction
+@end
+
+@interface SBAppToAppWorkspaceTransaction : SBToAppsWorkspaceTransaction
+-(id)initWithTransitionRequest:(id)arg1 ;
+-(void)_begin;
+@end
+
+@interface FBWorkspaceEventQueue : BSEventQueue
++(id)sharedInstance;
+-(void)executeOrAppendEvent:(id)arg1 ;
+-(void)executeOrPrependEvent:(id)arg1 ;
+-(void)executeOrPrependEvents:(id)arg1 ;
+@end
+
+@interface BSEventQueueEvent : NSObject
++(id)eventWithName:(id)arg1 handler:(/*^block*/id)arg2 ;
+@end
+
+@interface FBWorkspaceEvent : BSEventQueueEvent
+@end
+
+@interface BKSAssertion : NSObject
+-(void)invalidate;
+-(BOOL)acquire;
+-(BOOL)valid;
+@end
+
+@interface BKSProcessAssertion : BKSAssertion
++(id)NameForReason:(unsigned)arg1 ;
+-(id)initWithPID:(int)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 withHandler:(/*^block*/id)arg5 acquire:(BOOL)arg6 ;
+-(void)assertion:(id)arg1 didInvalidateWithError:(id)arg2 ;
+-(id)initWithPID:(int)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 ;
+-(id)initWithBundleIdentifier:(id)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 ;
+-(id)initWithBundleIdentifier:(id)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 withHandler:(/*^block*/id)arg5 acquire:(BOOL)arg6 ;
+-(void)dealloc;
+-(id)initWithBundleIdentifier:(id)arg1 pid:(int)arg2 flags:(unsigned)arg3 reason:(unsigned)arg4 name:(id)arg5 withHandler:(/*^block*/id)arg6 acquire:(BOOL)arg7 ;
+-(BOOL)acquire;
+-(id)initWithBundleIdentifier:(id)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 withHandler:(/*^block*/id)arg5 ;
+-(unsigned long long)_legacyFlagsForFlags:(unsigned)arg1 ;
+-(id)initWithPID:(int)arg1 flags:(unsigned)arg2 reason:(unsigned)arg3 name:(id)arg4 withHandler:(/*^block*/id)arg5 ;
+-(unsigned long long)_legacyReasonForReason:(unsigned)arg1 ;
+-(void)setFlags:(unsigned)arg1 ;
+-(unsigned)reason;
+-(unsigned)flags;
+-(void)invalidate;
+@end
+
+typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
+    ProcessAssertionFlagNone = 0,
+    ProcessAssertionFlagPreventSuspend         = 1 << 0,
+    ProcessAssertionFlagPreventThrottleDownCPU = 1 << 1,
+    ProcessAssertionFlagAllowIdleSleep         = 1 << 2,
+    ProcessAssertionFlagWantsForegroundResourcePriority  = 1 << 3
+};
+
+@protocol BSInvalidatable <NSObject>
+@required
+-(void)invalidate;
+
 @end
 

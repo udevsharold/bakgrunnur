@@ -14,7 +14,6 @@
 //static SBFloatingDockView *floatingDockView;
 //static double globalTimeSpan = 1800.0/2.0;
 
-
 @implementation BKGBakgrunnur
 
 +(void)load{
@@ -50,6 +49,7 @@
         self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
         self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
+
         
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -221,14 +221,45 @@
     
 }
 
+
 -(void)_retireScene:(NSString *)identifier{
     HBLogDebug(@"Retiring %@", identifier);
+   
+    if (@available(iOS 14.0, *)){
+        [self _terminateProcess:identifier];
+        return;
+    }
     
     FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
     NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
     
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
         if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
+            /*
+            if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
+                [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+            }
+            
+            
+            [scene.mutableSettings setForeground:NO];
+            [scene.mutableSettings setBackgrounded:YES];
+            
+            [sceneManager _updateScene:scene withSettings:[scene.mutableSettings copy] transitionContext:nil completion:^{
+                if (@available(iOS 14.0, *)){
+                    //[scene.clientProvider unregisterHost:scene];
+                    //[scene.clientProvider registerHost: withSpecification: settings: initialClientSettings: fromRemnant:]
+
+                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+                }
+            }];
+            */
+            
+            /*
+            UIApplicationSceneDeactivationManager *deactivationManager = [[objc_getClass("SBSceneManagerCoordinator") sharedInstance] sceneDeactivationManager];
+            [[deactivationManager newAssertionWithReason:3] acquire];
+            [deactivationManager _setDeactivationReasons:0 onScene:scene withSettings:(UIMutableApplicationSceneSettings *)scene.mutableSettings reason:@"Bakgrunnur"];
+            [deactivationManager endTrackingScene:scene];
+            */
             
             
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
@@ -236,15 +267,30 @@
             }
             
             
-            FBSMutableSceneSettings *backgroundingSceneSettings = scene.mutableSettings;
-            [backgroundingSceneSettings setForeground:NO];
-            [backgroundingSceneSettings setBackgrounded:YES];
-            
-            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:^{
+            [scene.mutableSettings setForeground:NO];
+            [scene.mutableSettings setBackgrounded:YES];
+
+            [sceneManager _applyMutableSettings:scene.mutableSettings toScene:scene withTransitionContext:nil completion:^{
                 if (@available(iOS 14.0, *)){
+                    
                     [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
                 }
             }];
+            
+            
+            /*
+            UIMutableApplicationSceneSettings *backgroundingSceneSettings = (UIMutableApplicationSceneSettings *)(scene.mutableSettings);
+            [backgroundingSceneSettings setForeground:NO];
+            [backgroundingSceneSettings setBackgrounded:YES];
+            
+            UIApplicationSceneDeactivationManager *deactivationManager = [[objc_getClass("SBSceneManagerCoordinator") sharedInstance] sceneDeactivationManager];
+            [deactivationManager _setDeactivationReasons:0 onScene:scene withSettings:backgroundingSceneSettings reason:@"scene retired by Bakgrunnur"];
+            [deactivationManager _untrackScene:scene];
+            
+            if (@available(iOS 14.0, *)){
+                [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+            }
+            */
             
             //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
             //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
@@ -268,6 +314,7 @@
             });
             
             HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
+                        
             *stop = YES;
         }
     }];
@@ -300,6 +347,21 @@
     }];
 }
 
+-(BOOL)isQueued:(NSString *)identifier{
+    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+    NSArray *timerInQueues = [queues allKeys];
+ 
+    for (PCPersistentTimer *persistentTimer in timerInQueues){
+        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+        NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
+        if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
+            return YES;
+            break;
+        }
+    }
+    return NO;
+}
 
 -(void)invalidateQueue:(NSString *)identifier{
     PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
@@ -397,6 +459,7 @@
 }
 
 -(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime{
+    
     
     PCPersistentTimer *timer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully?@selector(retireScene:):@selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
     

@@ -22,7 +22,6 @@ static long long preferredAccessoryType = 2;
 static BOOL showIndicatorOnDock = NO;
 static BOOL mainWSStarted = NO;
 static BOOL isFolderTransitioning = NO;
-static NSString *lastAppBundleIdentifier;
 
 static NSString* frontMostAppBundleIdentifier(){
     if (mainWSStarted){
@@ -86,8 +85,10 @@ static void sceneMovedToBackground(FBScene *scene){
                 expiration = expiration == 0 ? 1 : expiration;
                 
                 HBLogDebug(@"expiration %f", expiration);
+                
                 [bakgrunnur queueProcess:bundleIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
             }
+            
             if (enabledAppNotifications){
                 [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:4 forBundleIdentifier:bundleIdentifier];
             }
@@ -108,6 +109,7 @@ static void sceneMovedToBackground(FBScene *scene){
 
 static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSettings *settings){
     if (enabled){
+        
         NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
         NSString *frontMostAppID = frontMostAppBundleIdentifier();
         
@@ -122,9 +124,10 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             isiOS14 = YES;
         }
         
+        
         if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]  && (proc.pid > 0)){
             
-            
+            HBLogDebug(@"ENTER");
             BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
             
             BOOL isFrontMost = NO;
@@ -137,14 +140,12 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                 }
                 if (isFrontMost && frontMostAppID && !isUILocked){
                     
-                    
                     BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:frontMostAppID] || [bakgrunnur.immortalIdentifiers containsObject:frontMostAppID] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:frontMostAppID];
                     
                     if (alreadyQueued && ![persistenceOnce containsObject:frontMostAppID]){
                         [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostAppID];
                         HBLogDebug(@"Revoked \"Once\" token for %@", frontMostAppID);
                     }
-                    
                     
                     [bakgrunnur invalidateQueue:frontMostAppID];
                     
@@ -164,9 +165,11 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                     if (isiOS14){
                         if ([bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
                             //[bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
+                            //assert(NO);
                             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                                 sceneMovedToBackground(scene);
                             });
+                            
                         }
                         
                     }
@@ -186,6 +189,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             }
             
             if ([settings respondsToSelector:@selector(setForeground:)] && userInitiated){
+                
                 [settings setForeground:YES];
                 [settings setBackgrounded:NO];
                 
@@ -206,8 +210,6 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
             [bakgrunnur invalidateQueue:bundleIdentifier];
         }
-        
-        
         //else if (![enabledIdentifier containsObject:bundleIdentifier] && ([bakgrunnur.queuedIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:bundleIdentifier]){
         //[bakgrunnur.retiringIdentifiers removeObject:bundleIdentifier];
         //}
@@ -239,6 +241,16 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
  }
  %end
  */
+
+
+%hook SBMainWorkspace
+-(void)_removeApplicationEntities:(id)arg1 withDestroyalIntent:(id)arg2 completion:(/*^block*/id)arg3{    HBLogDebug(@"_removeApplicationEntities");
+    %orig;
+}
+-(void)_destroyApplicationSceneEntity:(id)arg1{    HBLogDebug(@"_destroyApplicationSceneEntity: %@", arg1);
+    %orig;
+}
+%end
 
 %hook SBFloatingDockView
 -(id)initWithFrame:(CGRect)arg1{
@@ -495,7 +507,9 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
 
 
 %hook FBSceneManager
+
 -(void)_applyMutableSettings:(UIMutableApplicationSceneSettings *)settings toScene:(FBScene *)scene withTransitionContext:(id)transitionContext completion:(/*^block*/id)arg4{
+    
     //HBLogDebug(@"withTransitionContext: %@",[[[transitionContext valueForKey:@"actions"] valueForKey:@"info"] valueForKey:@"intents"]);
     //HBLogDebug(@"scene: %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
     //HBLogDebug(@"enabled: %@", enabled?@"YES":@"NO");
@@ -506,7 +520,51 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
     %orig;
     
 }
-%end
+/*
+ -(void)scene:(FBScene *)scene handleUpdateToSettings:(UIMutableApplicationSceneSettings *)settings withTransitionContext:(id)transitionContext completion:(/*^block*id)arg4{
+ applySceneWithSettings(scene, settings);
+ %orig;
+ }
+ */
+ %end
+ 
+
+
+/*
+ %hook SpringBoard
+ -(void)frontDisplayDidChange:(id)display{
+ %orig;
+ 
+ if ([display isKindOfClass:[objc_getClass("SBApplication") class]]){
+ HBLogDebug(@"frontDisplayDidChange: %@", display);
+ NSString *identifier = [display bundleIdentifier];
+ if (![identifier isEqualToString:currentApp]){
+ FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
+ NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
+ [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
+ if ([currentApp isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
+ sceneMovedToBackground(scene);
+ *stop = YES;
+ }
+ }];
+ }
+ currentApp = identifier;
+ }else{
+ if (currentApp){
+ FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
+ NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
+ [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
+ if ([currentApp isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
+ sceneMovedToBackground(scene);
+ *stop = YES;
+ }
+ }];
+ }
+ currentApp = nil;
+ }
+ }
+ %end
+ */
 
 static NSArray *getArrayWithFormat(NSString *keyName, NSString *identifier, NSString *format){
     NSArray *array = [prefs[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:format]];
@@ -550,7 +608,13 @@ static void reloadPrefs(){
         if (!firstInit){
             NSMutableArray *disabledIdentifier = [getEnabledArray(NO) mutableCopy];
             [disabledIdentifier removeObjectsInArray:bakgrunnur.grantedOnceIdentifiers];
-            [bakgrunnur invalidateAllQueuesIn:disabledIdentifier];
+            NSMutableArray *reallyDisabledIdentifier = [NSMutableArray array];
+            for (NSString *queuedIdentifier in disabledIdentifier){
+                if ([bakgrunnur isQueued:queuedIdentifier]){
+                    [reallyDisabledIdentifier addObject:queuedIdentifier];
+                }
+            }
+            [bakgrunnur invalidateAllQueuesIn:reallyDisabledIdentifier];
         }
     }else if (prefs && ([prefs count] == 0)){
         enabledIdentifier = @[];

@@ -16,7 +16,6 @@
 - (void)viewWillLayoutSubviews{
     [super viewWillLayoutSubviews];
     
-    
     if(self.expanded){
         [self.buttonView.subviews setValue:@YES forKeyPath:@"hidden"];
         if (![self.buttonView viewWithTag:CLEAN_GLYPH_TAG]){

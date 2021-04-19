@@ -39,4 +39,5 @@
 -(void)startAdvancedMonitoringWithInterval:(double)interval;
 -(void)notifySleepingState:(BOOL)sleep;
 -(void)launchBundleIdentifier:(NSString *)bundleID trusted:(BOOL)trusted suspended:(BOOL)suspend withPayloadURL:(NSString *)payloadURL completion:(void (^)(NSError *error))completionHandler;
+-(BOOL)isQueued:(NSString *)identifier;
 @end
