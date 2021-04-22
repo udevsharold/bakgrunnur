@@ -96,6 +96,8 @@ void refreshEnabledSwitch() {
         
         //banner
         if (@available(iOS 14.0, *)){
+            [rootSpecifiers addObject:blankSpecGroup];
+
             PSSpecifier *presentBannerSpec = [PSSpecifier preferenceSpecifierNamed:@"Banners" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
             [presentBannerSpec setProperty:@"Banners" forKey:@"label"];
             [presentBannerSpec setProperty:@"presentBanner" forKey:@"key"];
