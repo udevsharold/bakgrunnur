@@ -94,6 +94,17 @@ void refreshEnabledSwitch() {
         PSSpecifier *forceTouchShortcutSpec = [PSSpecifier preferenceSpecifierNamed:@"Quick Actions" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurQuickActionsController") cell:PSLinkCell edit:nil];
         [rootSpecifiers addObject:forceTouchShortcutSpec];
         
+        //banner
+        if (@available(iOS 14.0, *)){
+            PSSpecifier *presentBannerSpec = [PSSpecifier preferenceSpecifierNamed:@"Banners" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+            [presentBannerSpec setProperty:@"Banners" forKey:@"label"];
+            [presentBannerSpec setProperty:@"presentBanner" forKey:@"key"];
+            [presentBannerSpec setProperty:@YES forKey:@"default"];
+            [presentBannerSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+            [presentBannerSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+            [rootSpecifiers addObject:presentBannerSpec];
+        }
+        
         //reset
         PSSpecifier *resetGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [resetGroupSpec setProperty:@"Reset everything to default." forKey:@"footerText"];

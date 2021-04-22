@@ -31,7 +31,7 @@ static NSString* frontMostAppBundleIdentifier(){
     return nil;
 }
 
-static void sceneMovedToForeground(FBScene *scene){
+static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
     if (enabled){
         NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
         
@@ -51,11 +51,14 @@ static void sceneMovedToForeground(FBScene *scene){
             [bakgrunnur invalidateQueue:bundleIdentifier];
             HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
         }
+        if (completion){
+            completion();
+        }
     }
     
 }
 
-static void sceneMovedToBackground(FBScene *scene){
+static void sceneMovedToBackground(FBScene *scene, void (^completion)()){
     
     if (enabled){
         NSString *bundleIdentifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
@@ -79,6 +82,7 @@ static void sceneMovedToBackground(FBScene *scene){
                     [bakgrunnur.advancedMonitoringIdentifiers addObject:bundleIdentifier];
                     [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                 }
+                [bakgrunnur presentBannerWithSubtitleIfNecessary:isImmortal?@"Immortal":@"Advanced" forBundle:bundleIdentifier];
             }else{
                 double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                 expiration = expiration < 0 ? defaultExpirationTime : expiration;
@@ -104,6 +108,9 @@ static void sceneMovedToBackground(FBScene *scene){
         }else{
             [bakgrunnur.retiringIdentifiers removeObject:bundleIdentifier];
         }
+        if (completion){
+            completion();
+        }
     }
 }
 
@@ -114,8 +121,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
         NSString *frontMostAppID = frontMostAppBundleIdentifier();
         
         BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
-        FBProcessManager *processManager  = [%c(FBProcessManager) sharedInstance];
-        FBProcess *proc = [[processManager processesForBundleIdentifier:bundleIdentifier] firstObject];
+        int pid = [bakgrunnur pidForBundleIdentifier:bundleIdentifier];
         
         NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
         
@@ -125,7 +131,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
         }
         
         
-        if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]  && (proc.pid > 0)){
+        if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]  && (pid > 0)){
             
             HBLogDebug(@"ENTER");
             BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
@@ -168,7 +174,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                             //[bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
                             //assert(NO);
                             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                                sceneMovedToBackground(scene);
+                                sceneMovedToBackground(scene, nil);
                             });
                             
                         }
@@ -180,7 +186,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             
             if (isiOS14 && isUILocked && [bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                    sceneMovedToBackground(scene);
+                    sceneMovedToBackground(scene, nil);
                 });
             }
             
@@ -207,7 +213,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                 HBLogDebug(@"Deferred backgrounding for %@", bundleIdentifier);
             }
             
-        }else if (([enabledIdentifier containsObject:bundleIdentifier] || (![persistenceOnce containsObject:bundleIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier])) && !(proc.pid > 0)){
+        }else if (([enabledIdentifier containsObject:bundleIdentifier] || (![persistenceOnce containsObject:bundleIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier])) && !(pid > 0)){
             [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
             [bakgrunnur invalidateQueue:bundleIdentifier];
         }
@@ -470,7 +476,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
     //HBLogDebug(@"_noteSceneMovedToForeground: %@", scene);
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        sceneMovedToForeground(scene);
+        sceneMovedToForeground(scene, nil);
     });
     
 }
@@ -479,7 +485,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
     //HBLogDebug(@"_noteSceneMovedToBackground: %@", [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication]);
     %orig;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        sceneMovedToBackground(scene);
+        sceneMovedToBackground(scene, nil);
     });
     
 }
@@ -529,7 +535,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
  NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
  [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
  if ([currentApp isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
- sceneMovedToBackground(scene);
+ sceneMovedToBackground(scene, nil);
  *stop = YES;
  }
  }];
@@ -541,7 +547,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
  NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
  [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
  if ([currentApp isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
- sceneMovedToBackground(scene);
+ sceneMovedToBackground(scene, nil);
  *stop = YES;
  }
  }];
@@ -587,6 +593,10 @@ static void reloadPrefs(){
     persistenceOnce = getPersistenceOnceArray();
     
     BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
+    
+    if (@available(iOS 14.0, *)){
+        bakgrunnur.presentBanner = prefs[@"presentBanner"] ? [prefs[@"presentBanner"] boolValue] : YES;
+    }
     
     if (prefs && [prefs[@"enabledIdentifier"] firstObject] != nil){
         enabledIdentifier = getEnabledArray(YES);
@@ -740,7 +750,8 @@ static void cliRequest(){
                             if ([pending[@"identifier"] isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
                                 
                                 if (@available(iOS 14.0, *)){
-                                    sceneMovedToForeground(scene);
+                                    bakgrunnur.temporarilyHaltBanner = YES;
+                                    sceneMovedToForeground(scene, nil);
                                 }else{
                                     [sceneManager _noteSceneMovedToForeground:scene];
                                 }
@@ -748,13 +759,14 @@ static void cliRequest(){
                                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                                     
                                     if (@available(iOS 14.0, *)){
-                                        sceneMovedToBackground(scene);
+                                        sceneMovedToBackground(scene, ^{
+                                            bakgrunnur.temporarilyHaltBanner = NO;
+                                        });
                                     }else{
                                         [sceneManager _noteSceneMovedToBackground:scene];
                                     }
                                     
                                 });
-                                
                                 *stop = YES;
                             }
                         }];

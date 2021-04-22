@@ -7,6 +7,7 @@
 #include <mach/mach.h>
 #include <dlfcn.h>
 #include <objc/runtime.h>
+#import "Vexillarius.h"
 
 //static NSDictionary *prefs;
 //static NSArray *enabledIdentifier;
@@ -51,6 +52,7 @@
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
         self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
         _retiringAssertionQueues = [NSMutableDictionary dictionary];
+        
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -471,11 +473,91 @@
     
     [self.queuedIdentifiers addObject:identifier];
     [self updateLabelAccessory:identifier];
+    
+    [self presentBannerWithSubtitleIfNecessary:[NSString stringWithFormat:@"%@, %@", removeGracefully?@"Retire":@"Terminate", [self formattedExpiration:expTime]] forBundle:identifier];
+    
     //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
     //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
     //[sbApp _setNewlyInstalled:YES];
 }
 
+-(void)presentBannerWithSubtitleIfNecessary:(NSString *)subtitle forBundle:(NSString *)identifier{
+    if (self.presentBanner && !self.temporarilyHaltBanner){
+        [self presentBannerWithSubtitle:subtitle forBundle:identifier];
+    }
+}
+
+-(void)presentBannerWithSubtitle:(NSString *)subtitle forBundle:(NSString *)identifier{
+        const char *displayName = [[self appNameForBundleIdentifier:identifier] UTF8String];
+        const char *cSubtitle = [subtitle UTF8String];
+        [self sendVexillariusMesage:[self vexillariusMesageWithTitle:displayName subtitle:cSubtitle imageName:"Bakgrunnur" timeout:2.0]];
+}
+
+-(NSString *)formattedExpiration:(double)seconds{
+    NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+    
+    if (seconds < 60){
+        formatter.numberStyle = NSNumberFormatterNoStyle;
+        return [NSString stringWithFormat:@"%@s", [formatter stringFromNumber:@(seconds)]];
+    }else if (seconds < 3600){
+        formatter.numberStyle = NSNumberFormatterNoStyle;
+        return [NSString stringWithFormat:@"%@m", [formatter stringFromNumber:@(seconds/60.0)]];
+    }else if (fmod(seconds, 60.0) > 0){
+        formatter.numberStyle = NSNumberFormatterDecimalStyle;
+        formatter.maximumFractionDigits = 1;
+        formatter.roundingMode = NSNumberFormatterRoundUp;
+        return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
+    }else{
+        formatter.numberStyle = NSNumberFormatterNoStyle;
+        return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
+    }
+}
+
+-(NSString *)appNameForBundleIdentifier:(NSString *)identifier{
+    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
+    SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
+    return sbApp.displayName;
+}
+
+-(const char *)fullImagePathNamed:(const char*)name ext:(const char*)fileExt mode:(int)mode{
+    static char str[128];
+    snprintf(str, sizeof(str), "/Library/Application Support/Bakgrunnur.bundle/%s-%s.%s", name, (mode==0?"Light":"Dark"), fileExt);
+    return str;
+}
+
+-(xpc_object_t)vexillariusMesageWithTitle:(const char *)title subtitle:(const char *)subtitle imageName:(const char *)imageName timeout:(double)timeout{
+    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_double(message, VXKey.timeout, timeout?:2.0);
+    xpc_dictionary_set_string(message, VXKey.title, title);
+    xpc_dictionary_set_string(message, VXKey.subtitle, subtitle);
+
+    if (@available(iOS 13.0, *)){
+        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleLight){
+            const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:1];
+            xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
+        }else{
+            const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:0];
+            xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
+        }
+    }
+    return message;
+}
+
+-(xpc_connection_t)vxXPCConnection{
+    xpc_connection_t connection =
+    xpc_connection_create_mach_service("com.udevs.vexillarius", NULL, 0);
+    xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+    });
+    xpc_connection_resume(connection);
+    return connection;
+}
+
+-(void)sendVexillariusMesage:(xpc_object_t)message{
+    xpc_connection_t cslConnection = [self vxXPCConnection];
+    if (cslConnection){
+        xpc_connection_send_message(cslConnection, message);
+    }
+}
 
 -(void)setTaskEventsDeltaHistoryForBundleIdentifier:(NSString *)identifier newHistory:(NSMutableDictionary *)history lastHistory:(NSMutableDictionary *)historyDictAtInstance timeStamp:(NSTimeInterval)timeStamp delay:(double)delay{
     

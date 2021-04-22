@@ -21,6 +21,8 @@
 @property(nonatomic, strong) NSMutableArray *grantedOnceIdentifiers;
 @property(nonatomic, strong) NSMutableArray *userInitiatedIdentifiers;
 @property(nonatomic, strong) NSArray *dormantDarkWakeIdentifiers;
+@property(nonatomic, assign) BOOL presentBanner;
+@property(nonatomic, assign) BOOL temporarilyHaltBanner;
 
 +(instancetype)sharedInstance;
 -(void)setObject:(NSDictionary *)objectDict bundleIdentifier:(NSString *)bundleIdentifier;
@@ -45,4 +47,6 @@
 -(BOOL)isQueued:(NSString *)identifier;
 -(BOOL)invalidateAssertion:(NSString *)identifier;
 -(void)fireAssertionRetiring:(NSString *)identifier delay:(double)delay;
+-(int)pidForBundleIdentifier:(NSString *)bundleIdentifier;
+-(void)presentBannerWithSubtitleIfNecessary:(NSString *)subtitle forBundle:(NSString *)identifier;
 @end
