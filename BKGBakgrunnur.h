@@ -1,7 +1,10 @@
 #include <xpc/xpc.h>
 
-@interface BKGBakgrunnur : NSObject
+@interface BKGBakgrunnur : NSObject{
+    NSMutableDictionary *_retiringAssertionQueues;
+}
 @property(nonatomic, strong) NSMutableArray *retiringIdentifiers;
+@property(nonatomic, strong) NSMutableArray *retiringAssertionIdentifiers;
 @property(nonatomic, strong) NSMutableArray *queuedIdentifiers;
 @property(nonatomic, strong) NSMutableArray *immortalIdentifiers;
 @property(nonatomic, strong) NSMutableArray *advancedMonitoringIdentifiers;
@@ -40,4 +43,6 @@
 -(void)notifySleepingState:(BOOL)sleep;
 -(void)launchBundleIdentifier:(NSString *)bundleID trusted:(BOOL)trusted suspended:(BOOL)suspend withPayloadURL:(NSString *)payloadURL completion:(void (^)(NSError *error))completionHandler;
 -(BOOL)isQueued:(NSString *)identifier;
+-(BOOL)invalidateAssertion:(NSString *)identifier;
+-(void)fireAssertionRetiring:(NSString *)identifier delay:(double)delay;
 @end

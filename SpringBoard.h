@@ -170,6 +170,28 @@
 -(double)totalElapsedIdleTime;
 @end
 
+@interface FBSProcessTerminationRequest : NSObject
++(id)requestForProcess:(id)arg1 withLabel:(id)arg2 ;
+@end
+
+@interface RBSProcessIdentifier : NSObject
+@property (nonatomic,readonly) int pid;
+@end
+
+@interface RBSTarget : NSObject
+@property (nonatomic,readonly) RBSProcessIdentifier * processIdentifier; //pid
+@property (nonatomic,readonly) RBSProcessIdentity * processIdentity;
++(id)targetWithProcessIdentity:(id)arg1 ;
++(BOOL)supportsRBSXPCSecureCoding;
++(id)currentProcess;
++(id)targetWithProcessIdentifier:(id)arg1 ;
++(id)systemTarget;
++(id)targetWithProcessIdentity:(id)arg1 environmentIdentifier:(id)arg2 ;
++(id)targetWithPid:(int)arg1 ;
++(id)targetWithProcessIdentifier:(id)arg1 environmentIdentifier:(id)arg2 ;
++(id)targetWithPid:(int)arg1 environmentIdentifier:(id)arg2 ;
+@end
+
 @interface FBProcess : NSObject{
     FBProcessCPUStatistics* _cpuStatistics;
 }
@@ -178,6 +200,8 @@
 @property (nonatomic,readonly) RBSProcessIdentity * identity;
 @property (nonatomic,copy,readonly) NSString * bundleIdentifier;
 @property (nonatomic,copy,readonly) NSString * executablePath;
+@property (nonatomic,readonly) RBSTarget * target;
++(id)calloutQueue;
 -(FBProcessState *)state;
 -(id)initWithHandle:(id)arg1 identity:(id)arg2 executionContext:(id)arg3 ;
 -(void)_queue_rebuildState;
@@ -186,6 +210,9 @@
 -(void)_queue_setTaskState:(long long)arg1 ;
 -(void)_queue_setVisibility:(long long)arg1 ;
 -(void)launchWithDelegate:(id)arg1 ;
+-(void)_lock_consumeLock_performGracefulKill;
+-(void)_terminateWithRequest:(id)arg1 completion:(/*^block*/id)arg2 ;
+-(void)_setSceneLifecycleState:(unsigned char)arg1 ;
 @end
 
 @interface FBApplicationProcess : FBProcess
@@ -229,6 +256,8 @@
 @interface UIMutableApplicationSceneSettings : FBSMutableSceneSettings
 @property (nonatomic,retain) NSString * persistenceIdentifier;
 @property (assign,nonatomic) BOOL idleModeEnabled;
+-(void)setUnderLock:(BOOL)arg1 ;
+-(void)setDeactivationReasons:(unsigned long long)arg1 ;
 @end
 
 @interface FBSSceneSpecification : NSObject
@@ -294,7 +323,7 @@
 -(void)_destroyScene:(id)arg1 withTransitionContext:(id)arg2 ;
 -(void)_updateScene:(id)arg1 withSettings:(id)arg2 transitionContext:(id)arg3 completion:(/*^block*/id)arg4 ;
 -(void)scene:(id)arg1 handleUpdateToSettings:(id)arg2 withTransitionContext:(id)arg3 completion:(/*^block*/id)arg4 ;
-
+-(id)createSceneFromRemnant:(id)arg1 withSettings:(id)arg2 transitionContext:(id)arg3 ;
 @end
 
 @interface SBApplicationWakeScheduler : NSObject
@@ -334,12 +363,16 @@
 -(void)_setNewlyInstalled:(BOOL)arg1 ;
 -(void)_setRecentlyUpdated:(BOOL)arg1 ;
 -(NSString *)bundleIdentifier;
+-(void)saveSnapshotForSceneHandle:(id)arg1 context:(id)arg2 completion:(/*^block*/id)arg3 ;
+-(void)_didSuspend;
 @end
 
 @interface SBApplicationController : NSObject
 +(id)sharedInstance;
++(id)sharedInstanceIfExists;
 -(SBApplication *)applicationWithBundleIdentifier:(id)arg1 ;
 -(void)applicationVisibilityMayHaveChanged;
+-(SBApplication *)applicationWithPid:(int)arg1 ;
 @end
 
 @interface RBProcessMap : NSObject
@@ -359,6 +392,12 @@
 
 @interface RBPowerAssertionManager : NSObject
 @end
+
+
+@interface RBAssertion : NSObject
+@property (nonatomic,copy,readonly) NSArray * attributes;
+@end
+
 
 @interface RBAssertionManager : NSObject
 -(id)allEntitlements;
@@ -461,8 +500,21 @@
 @interface BSEventQueueLock : NSObject
 @end
 
-@interface RBSConnection : NSObject
+@interface RBSAssertionIdentifier : NSObject
+@end
+
+@interface RBSConnection : NSObject{
+    NSMapTable* _acquiredAssertionsByIdentifier;
+}
 +(id)sharedInstance;
+-(BOOL)invalidateAssertion:(id)arg1 error:(NSError **)arg2 ;
+-(RBSAssertionIdentifier *)acquireAssertion:(id)arg1 error:(NSError **)arg2 ;
+-(BOOL)invalidateAssertionWithIdentifier:(id)arg1 error:(NSError **)arg2 ;
+@end
+
+@interface RBSXPCMessage : NSObject
++(id)messageForMethod:(SEL)arg1 varguments:(id)arg2 ;
++(id)messageForXPCMessage:(id)arg1;
 @end
 
 @interface RBConnectionContext : NSObject
@@ -585,6 +637,7 @@
 
 @interface SBMainWorkspace : SBWorkspace
 +(id)sharedInstance;
++(id)_instanceIfExists;
 +(id)_sharedInstanceWithNilCheckPolicy:(long long)arg1 ;
 -(void)systemService:(FBSystemService *)arg1 handleOpenApplicationRequest:(FBSystemServiceOpenApplicationRequest *)arg2 withCompletion:(/*^block*/id)arg3 ;
 -(void)_resume;
@@ -604,6 +657,8 @@
 -(void)setCurrentTransaction:(id)arg1 ;
 -(id)_transactionForTransitionRequest:(id)arg1 ;
 -(void)_destroyApplicationSceneEntity:(id)arg1 ;
+-(void)applicationProcessDidExit:(id)arg1 withContext:(id)arg2 ;
+-(void)updateFrontMostApplicationEventPort;
 @end
 
 @interface RBConnectionListener : NSObject
@@ -1020,9 +1075,98 @@ typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
     ProcessAssertionFlagWantsForegroundResourcePriority  = 1 << 3
 };
 
+@interface FBSSceneSnapshotContext : NSObject
++(id)contextWithSceneID:(NSString *)arg1 settings:(FBSSceneSettings *)arg2 ;
+@end
+
+@interface BSAction : NSObject
+@end
+
+@interface FBSSceneSnapshotRequestAction : BSAction
+-(id)initWithType:(unsigned long long)arg1 context:(FBSSceneSnapshotContext *)arg2 completion:(/*^block*/id)arg3 ;
+@end
+
+
 @protocol BSInvalidatable <NSObject>
 @required
 -(void)invalidate;
 
 @end
 
+@interface SBSceneBackgroundedStatusAssertion : NSObject
+-(void)invalidate;
+@end
+
+@interface SBSceneManager : NSObject{
+    NSCountedSet* _assertedBackgroundScenes;
+}
+-(SBSceneBackgroundedStatusAssertion *)assertBackgroundedStatusForScenes:(NSSet *)scenes ;
+-(void)invalidate;
+-(void)_reconnectSceneRemnant:(id)arg1 forProcess:(id)arg2 sceneManager:(id)arg3 ;
+-(id)existingSceneHandleForScene:(id)arg1 ;
+@end
+
+@interface SBMainDisplaySceneManager : SBSceneManager
+-(BOOL)_handleAction:(FBSSceneSnapshotRequestAction *)arg1 forScene:(FBScene *)arg2 ;
+@end
+
+
+@interface SBSceneDisconnectionManager : NSObject
++(id)sharedManager;
+-(void)disconnectScenes:(id)arg1 completion:(/*^block*/id)arg2 ;
+-(id)liveScenesForApplication:(id)arg1 ;
+@end
+
+@interface CLAssertion : NSObject
+-(void)invalidate;
+@end
+
+@interface CLInUseAssertion : CLAssertion
++(id)newAssertionForBundleIdentifier:(id)arg1 withReason:(id)arg2 ;
++(id)newAssertionForBundle:(id)arg1 withReason:(id)arg2 ;
++(id)newAssertionForBundleIdentifier:(id)arg1 bundlePath:(id)arg2 reason:(id)arg3 level:(int)arg4 ;
++(id)newAssertionForBundleIdentifier:(id)arg1 withReason:(id)arg2 level:(int)arg3 ;
++(id)newAssertionForBundle:(id)arg1 withReason:(id)arg2 level:(int)arg3 ;
+@end
+
+@interface RBSAttribute : NSObject
+@end
+
+@interface RBSLegacyAttribute : RBSAttribute
++(id)attributeWithReason:(unsigned long long)arg1 flags:(unsigned long long)arg2 ;
+@end
+
+@interface RBSGrant : RBSAttribute
+@end
+
+@interface RBSHereditaryGrant : RBSGrant
++(id)grantWithNamespace:(id)arg1 sourceEnvironment:(id)arg2 endowment:(id)arg3 attributes:(id)arg4 ;
++(id)grantWithNamespace:(id)arg1 sourceEnvironment:(id)arg2 attributes:(id)arg3 ;
++(id)grantWithNamespace:(id)arg1 endowment:(id)arg2 attributes:(id)arg3 ;
+@end
+
+@interface RBSPreventIdleSleepGrant : RBSGrant
++(id)grant;
+@end
+
+@interface RBSAppNapPreventBackgroundSocketsGrant : RBSGrant
++(id)grant;
+@end
+
+@interface RBSAppNapInactiveGrant : RBSGrant
++(id)grant;
+@end
+
+@interface RBSRunningReasonAttribute : RBSAttribute
++(id)withReason:(unsigned long long)arg1 ;
+@end
+
+
+@interface RBSAssertion : NSObject
+@property (nonatomic,readonly) RBSTarget * target;
+@property (nonatomic,copy,readonly) RBSAssertionIdentifier * identifier;
+-(id)initWithExplanation:(NSString *)arg1 target:(RBSTarget *)arg2 attributes:(NSArray *)arg3 ;
+-(BOOL)acquireWithError:(NSError **)arg1 ;
+-(BOOL)invalidateAssertion:(id)arg1 error:(out id*)arg2 ;
+-(BOOL)invalidateAssertionWithIdentifier:(id)arg1 error:(out id*)arg2 ;
+@end

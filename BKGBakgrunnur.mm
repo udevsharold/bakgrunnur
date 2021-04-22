@@ -42,6 +42,7 @@
         self.sleepingState = 0;
         
         self.retiringIdentifiers = [[NSMutableArray alloc] init];
+        self.retiringAssertionIdentifiers = [[NSMutableArray alloc] init];
         self.queuedIdentifiers = [[NSMutableArray alloc] init];
         self.immortalIdentifiers = [[NSMutableArray alloc] init];
         self.advancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
@@ -49,8 +50,7 @@
         self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
         self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
-
-        
+        _retiringAssertionQueues = [NSMutableDictionary dictionary];
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -143,6 +143,20 @@
     }
 }
 
+-(void)fireAssertionRetiring:(NSString *)identifier delay:(double)delay{
+    
+    if (_retiringAssertionQueues[identifier]){
+        dispatch_block_cancel(_retiringAssertionQueues[identifier]);
+    }
+    
+    _retiringAssertionQueues[identifier] = dispatch_block_create(static_cast<dispatch_block_flags_t>(0), ^{
+        [self.retiringAssertionIdentifiers removeObject:identifier];
+        [_retiringAssertionQueues removeObjectForKey:identifier];
+    });
+        
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (delay * NSEC_PER_SEC)),dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), _retiringAssertionQueues[identifier]);
+}
+
 -(void)retireScene:(id)timer{
     NSDictionary *userInfo = [timer userInfo];
     [self _retireScene:userInfo[@"identifier"]];
@@ -164,36 +178,24 @@
         NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
         if ([identifiers containsObject:identifier]) {
             
-            
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
             
+            if (![self.retiringAssertionIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
+                [self.retiringAssertionIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+            }
             
+            UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
+            [newSettings setForeground:NO];
+            [newSettings setUnderLock:NO];
+            [newSettings setDeactivationReasons:0];
             
-            FBSMutableSceneSettings *backgroundingSceneSettings = scene.mutableSettings;
-            [backgroundingSceneSettings setForeground:NO];
-            [backgroundingSceneSettings setBackgrounded:YES];
-            
-            [sceneManager _applyMutableSettings:backgroundingSceneSettings toScene:scene withTransitionContext:nil completion:^{
+            [sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
                 if (@available(iOS 14.0, *)){
                     [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
                 }
             }];
-            
-            //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
-            //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            //HBLogDebug(@"taskstate for %@: %lld", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.taskState);
-            //HBLogDebug(@"running for %@: %@", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.running?@"YES":@"NO");
-            
-            //if (sbApp.processState.taskState <= 2){
-            //[sceneManager destroyScene:scene.identifier withTransitionContext:nil];
-            //}
-            
-            //[self.queuedIdentifiers removeObject:identifier];
-            //[self.immortalIdentifiers removeObject:identifier];
-            //[self.advancedMonitoringIdentifiers removeObject:identifier];
-            //[self.advancedMonitoringHistory removeObjectForKey:identifier];
             
             [toBeRemovedQueuedIdentifiers addObject:identifier];
             [toBeRemovedQueuedImmortalIdentifiers addObject:identifier];
@@ -218,97 +220,46 @@
     for (NSString *key in toBeRemovedAdvancedMonitoringHistoryIdentifiers){
         [self.advancedMonitoringHistory removeObjectForKey:key];
     }
-    
 }
 
 
 -(void)_retireScene:(NSString *)identifier{
     HBLogDebug(@"Retiring %@", identifier);
-   
-    if (@available(iOS 14.0, *)){
-        [self _terminateProcess:identifier];
-        return;
-    }
     
     FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
     NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
     
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
         if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
-            /*
-            if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-            
-            
-            [scene.mutableSettings setForeground:NO];
-            [scene.mutableSettings setBackgrounded:YES];
-            
-            [sceneManager _updateScene:scene withSettings:[scene.mutableSettings copy] transitionContext:nil completion:^{
-                if (@available(iOS 14.0, *)){
-                    //[scene.clientProvider unregisterHost:scene];
-                    //[scene.clientProvider registerHost: withSpecification: settings: initialClientSettings: fromRemnant:]
-
-                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                }
-            }];
-            */
-            
-            /*
-            UIApplicationSceneDeactivationManager *deactivationManager = [[objc_getClass("SBSceneManagerCoordinator") sharedInstance] sceneDeactivationManager];
-            [[deactivationManager newAssertionWithReason:3] acquire];
-            [deactivationManager _setDeactivationReasons:0 onScene:scene withSettings:(UIMutableApplicationSceneSettings *)scene.mutableSettings reason:@"Bakgrunnur"];
-            [deactivationManager endTrackingScene:scene];
-            */
-            
             
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
             
+            if (![self.retiringAssertionIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
+                [self.retiringAssertionIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+            }
             
-            [scene.mutableSettings setForeground:NO];
-            [scene.mutableSettings setBackgrounded:YES];
+            UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
+            [newSettings setForeground:NO];
+            [newSettings setUnderLock:NO];
+            [newSettings setDeactivationReasons:0];
 
-            [sceneManager _applyMutableSettings:scene.mutableSettings toScene:scene withTransitionContext:nil completion:^{
+            [sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
                 if (@available(iOS 14.0, *)){
-                    
                     [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
                 }
             }];
-            
-            
-            /*
-            UIMutableApplicationSceneSettings *backgroundingSceneSettings = (UIMutableApplicationSceneSettings *)(scene.mutableSettings);
-            [backgroundingSceneSettings setForeground:NO];
-            [backgroundingSceneSettings setBackgrounded:YES];
-            
-            UIApplicationSceneDeactivationManager *deactivationManager = [[objc_getClass("SBSceneManagerCoordinator") sharedInstance] sceneDeactivationManager];
-            [deactivationManager _setDeactivationReasons:0 onScene:scene withSettings:backgroundingSceneSettings reason:@"scene retired by Bakgrunnur"];
-            [deactivationManager _untrackScene:scene];
-            
-            if (@available(iOS 14.0, *)){
-                [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-            */
-            
-            //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
-            //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            //HBLogDebug(@"taskstate for %@: %lld", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.taskState);
-            //HBLogDebug(@"running for %@: %@", scene.clientProcess.identity.embeddedApplicationIdentifier, sbApp.processState.running?@"YES":@"NO");
-            
-            //if (sbApp.processState.taskState <= 2){
-            //[sceneManager destroyScene:scene.identifier withTransitionContext:nil];
-            //}
-            
+
             [self.queuedIdentifiers removeObject:identifier];
             [self.immortalIdentifiers removeObject:identifier];
             [self.advancedMonitoringIdentifiers removeObject:identifier];
             [self.grantedOnceIdentifiers removeObject:identifier];
             [self.advancedMonitoringHistory removeObjectForKey:identifier];
-            [self updateLabelAccessory:identifier];
+            //[self invalidateAssertion:identifier];
             [self.userInitiatedIdentifiers removeObject:identifier];
-            
+            [self updateLabelAccessory:identifier];
+
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                 [self updateDarkWakeState];
             });
@@ -337,14 +288,37 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         [self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
+        //[self invalidateAssertion:identifier];
         [self updateLabelAccessory:identifier];
         [self.userInitiatedIdentifiers removeObject:identifier];
-        
+
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
             [self updateDarkWakeState];
         });
         HBLogDebug(@"Terminated %@, with result: %ld", identifier, result);
     }];
+}
+
+-(BOOL)invalidateAssertion:(NSString *)identifier{
+    BOOL invalidated = NO;
+    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+    if (sbAppController){
+        RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
+        NSMapTable *acquiredAssertionsByIdentifier = [rbsCnx valueForKey:@"_acquiredAssertionsByIdentifier"];
+        
+        NSEnumerator *enumerator = [acquiredAssertionsByIdentifier objectEnumerator];
+        RBSAssertion *assertion;
+        
+        while ((assertion = [enumerator nextObject])) {
+            SBApplication *sbApp = [sbAppController applicationWithPid:assertion.target.processIdentifier.pid];
+            NSString *bundleIdentifier = sbApp.bundleIdentifier;
+            if ([bundleIdentifier isEqualToString:identifier]){
+                [rbsCnx invalidateAssertionWithIdentifier:assertion.identifier error:nil];
+                invalidated = YES;
+            }
+        }
+    }
+    return invalidated;
 }
 
 -(BOOL)isQueued:(NSString *)identifier{
@@ -371,6 +345,7 @@
     [self.immortalIdentifiers removeObject:identifier];
     [self.advancedMonitoringIdentifiers removeObject:identifier];
     [self.advancedMonitoringHistory removeObjectForKey:identifier];
+    ////[self invalidateAssertion:identifier];
     //[self.userInitiatedIdentifiers removeObject:identifier];
     
     //[self.grantedOnceIdentifiers removeObject:identifier];
@@ -403,6 +378,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
+        //[self invalidateAssertion:identifier];
         //[self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
@@ -436,6 +412,7 @@
         [self.advancedMonitoringIdentifiers removeObject:identifier];
         //[self.grantedOnceIdentifiers removeObject:identifier];
         [self.advancedMonitoringHistory removeObjectForKey:identifier];
+        //[self invalidateAssertion:identifier];
         //[self.userInitiatedIdentifiers removeObject:identifier];
         [self updateLabelAccessory:identifier];
     }
@@ -459,7 +436,26 @@
 }
 
 -(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime{
+    /*
+    RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
+    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:1 flags:13];
+    RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
+    RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
+    RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
+
+    RBSTarget *target = [objc_getClass("RBSTarget") targetWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier]];
     
+    if (!self.backgroundAssertion){
+    NSError *err = nil;
+    self.backgroundAssertion  = [[objc_getClass("RBSAssertion") alloc] initWithExplanation:@"Bakgrunnur" target:target attributes:@[runningAttr, legacyAttr, preventSleepGrant, preventBackgroundSocketGrant, inactiveGrant]];
+    [self.backgroundAssertion acquireWithError:&err];
+    HBLogDebug(@"Error: %@", err);
+
+    
+    self.backgroundAssertionID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:self.backgroundAssertion error:&err];
+    HBLogDebug(@"Error: %@", err);
+    }
+    */
     
     PCPersistentTimer *timer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully?@selector(retireScene:):@selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
     

@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <mach/mach.h>
 #import <dlfcn.h>
+#include <objc/runtime.h>
 
 BOOL enabled = YES;
 NSDictionary *prefs;
@@ -20,11 +21,10 @@ NSArray *persistenceOnce;
 static BOOL firstInit = YES;
 static long long preferredAccessoryType = 2;
 static BOOL showIndicatorOnDock = NO;
-static BOOL mainWSStarted = NO;
 static BOOL isFolderTransitioning = NO;
 
 static NSString* frontMostAppBundleIdentifier(){
-    if (mainWSStarted){
+    if ([objc_getClass("SBMainWorkspace") _instanceIfExists]){
         SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
         return frontMostApp.bundleIdentifier;
     }
@@ -133,7 +133,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             BOOL isFrontMost = NO;
             BOOL isUILocked = [[%c(SBLockScreenManager) sharedInstance] isUILocked];
             
-            if (mainWSStarted){
+            if ([objc_getClass("SBMainWorkspace") _instanceIfExists]){
                 isFrontMost = [frontMostAppID isEqualToString:bundleIdentifier];
                 if (isUILocked){
                     isFrontMost = NO;
@@ -151,6 +151,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                     
                     if (isiOS14){
                         if (![bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                            HBLogDebug(@"User initiated launch %@", frontMostAppID);
                             [bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
                         }
                     }
@@ -177,7 +178,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             }
             
             
-            if (isiOS14 && isUILocked){
+            if (isiOS14 && isUILocked && [bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                     sceneMovedToBackground(scene);
                 });
@@ -241,16 +242,6 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
  }
  %end
  */
-
-
-%hook SBMainWorkspace
--(void)_removeApplicationEntities:(id)arg1 withDestroyalIntent:(id)arg2 completion:(/*^block*/id)arg3{    HBLogDebug(@"_removeApplicationEntities");
-    %orig;
-}
--(void)_destroyApplicationSceneEntity:(id)arg1{    HBLogDebug(@"_destroyApplicationSceneEntity: %@", arg1);
-    %orig;
-}
-%end
 
 %hook SBFloatingDockView
 -(id)initWithFrame:(CGRect)arg1{
@@ -457,16 +448,6 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
  %end
  */
 
-%hook SBMainWorkspace
-+(id)start{
-    if (enabled){
-        id rtn = %orig;
-        mainWSStarted = YES;
-        return rtn;
-    }
-    return %orig;
-}
-%end
 
 //cydia
 /*
@@ -507,28 +488,33 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
 
 
 %hook FBSceneManager
-
 -(void)_applyMutableSettings:(UIMutableApplicationSceneSettings *)settings toScene:(FBScene *)scene withTransitionContext:(id)transitionContext completion:(/*^block*/id)arg4{
-    
-    //HBLogDebug(@"withTransitionContext: %@",[[[transitionContext valueForKey:@"actions"] valueForKey:@"info"] valueForKey:@"intents"]);
-    //HBLogDebug(@"scene: %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
-    //HBLogDebug(@"enabled: %@", enabled?@"YES":@"NO");
-    //HBLogDebug(@"enabledIdentifier: %@", enabledIdentifier);
-    
-    //HBLogDebug(@"_scenesByID: %@", [self valueForKey:@"_scenesByID"]);
     applySceneWithSettings(scene, settings);
     %orig;
-    
 }
-/*
- -(void)scene:(FBScene *)scene handleUpdateToSettings:(UIMutableApplicationSceneSettings *)settings withTransitionContext:(id)transitionContext completion:(/*^block*id)arg4{
- applySceneWithSettings(scene, settings);
- %orig;
- }
- */
- %end
- 
+%end
 
+//iOS 14 (needed else mediaserverd will try to invalidate the assertion - video is playing but no sound), maybe iOS 13?
+%hook RBSConnection
+-(BOOL)invalidateAssertion:(RBSAssertion *)assertion error:(NSError **)error{
+    if (enabled){
+        SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+        if (sbAppController){
+            SBApplication *sbApp = [sbAppController applicationWithPid:assertion.target.processIdentifier.pid];
+            NSString *bundleIdentifier = sbApp.bundleIdentifier;
+            BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
+            
+            if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringAssertionIdentifiers containsObject:bundleIdentifier] && [bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                HBLogDebug(@"Deferred invalidation of assertion for %@", bundleIdentifier);
+                return NO;
+            }else if ([bakgrunnur.retiringAssertionIdentifiers containsObject:bundleIdentifier]){
+                [bakgrunnur fireAssertionRetiring:bundleIdentifier delay:1.0];
+            }
+        }
+    }
+    return %orig;
+}
+%end
 
 /*
  %hook SpringBoard
@@ -805,6 +791,7 @@ static void preming(){
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)cliRequest, (CFStringRef)CLI_REQUEST_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)resetAll, (CFStringRef)RESET_ALL_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)preming, (CFStringRef)PRERMING_NOTIFICATION_NAME, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+    
     
     firstInit = NO;
     
