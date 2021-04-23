@@ -58,17 +58,17 @@
         [appEntrySpecifiers addObject:darkWakeSpec];
         
         //aggressive assertion
-        PSSpecifier *aggresiveAssertionGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-        [aggresiveAssertionGroupSpec setProperty:[NSString stringWithFormat:@"Aggresively put %@ into backgrounding mode. Enabling this will prevent the UI of %@ from being throttled and try to use as much resources as needed.", self.title, self.title] forKey:@"footerText"];
-        [appEntrySpecifiers addObject:aggresiveAssertionGroupSpec];
+        PSSpecifier *aggressiveAssertionGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        [aggressiveAssertionGroupSpec setProperty:[NSString stringWithFormat:@"Aggressively put %@ into backgrounding mode. Enabling this will prevent the UI of %@ from being throttled and try to use as much resources as needed.", self.title, self.title] forKey:@"footerText"];
+        [appEntrySpecifiers addObject:aggressiveAssertionGroupSpec];
         
-        PSSpecifier *aggresiveAssertionSpec = [PSSpecifier preferenceSpecifierNamed:@"Aggresive" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [aggresiveAssertionSpec setProperty:@"Aggresive" forKey:@"label"];
-        [aggresiveAssertionSpec setProperty:@"aggresiveAssertion" forKey:@"key"];
-        [aggresiveAssertionSpec setProperty:@YES forKey:@"default"];
-        [aggresiveAssertionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
-        [aggresiveAssertionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
-        [appEntrySpecifiers addObject:aggresiveAssertionSpec];
+        PSSpecifier *aggressiveAssertionSpec = [PSSpecifier preferenceSpecifierNamed:@"Aggressive" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [aggressiveAssertionSpec setProperty:@"Aggressive" forKey:@"label"];
+        [aggressiveAssertionSpec setProperty:@"aggressiveAssertion" forKey:@"key"];
+        [aggressiveAssertionSpec setProperty:@YES forKey:@"default"];
+        [aggressiveAssertionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+        [aggressiveAssertionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+        [appEntrySpecifiers addObject:aggressiveAssertionSpec];
         
         //expiration
         PSSpecifier *expirationGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];

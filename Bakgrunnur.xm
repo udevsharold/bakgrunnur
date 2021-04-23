@@ -52,8 +52,8 @@ static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
             
             
             NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
-            BOOL aggresiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"] boolValue] : YES;
-            [bakgrunnur acquireAssertionIfNecessary:scene aggresive:aggresiveAssertion];
+            BOOL aggressiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"] boolValue] : YES;
+            [bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
             
             HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
         }
@@ -173,8 +173,8 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                     }
                     
                     if (isiOS14){
-                        BOOL aggresiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"] boolValue] : YES;
-                        [bakgrunnur acquireAssertionIfNecessary:scene aggresive:aggresiveAssertion];
+                        BOOL aggressiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"] boolValue] : YES;
+                        [bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
                     }
                     HBLogDebug(@"Reset expiration for %@", frontMostAppID);
                 }else if (!isUILocked && !isFrontMost){

@@ -420,9 +420,9 @@
     }
 }
 
--(RBSAssertion *)assertionWithTarget:(RBSTarget *)target aggresive:(BOOL)aggresive{
+-(RBSAssertion *)assertionWithTarget:(RBSTarget *)target aggressive:(BOOL)aggressive{
     //RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
-    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:7 flags:(aggresive?(RBSLegacyFlagPreventTaskSuspend | RBSLegacyFlagPreventTaskThrottleDown | RBSLegacyFlagPreventThrottleDownUI | RBSLegacyFlagWantsForegroundResourcePriority): RBSLegacyFlagPreventTaskSuspend)];
+    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:7 flags:(aggressive?(RBSLegacyFlagPreventTaskSuspend | RBSLegacyFlagPreventTaskThrottleDown | RBSLegacyFlagPreventThrottleDownUI | RBSLegacyFlagWantsForegroundResourcePriority): RBSLegacyFlagPreventTaskSuspend)];
     //RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
     //RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
     //RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
@@ -492,11 +492,11 @@
 }
 
 
--(void)acquireAssertionIfNecessary:(FBScene *)scene aggresive:(BOOL)aggresive{
+-(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive{
     
     NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
     
-    if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggresive) || (_assertions[scene.identifier].attributes.count > 1 && !aggresive)))){
+    if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggressive) || (_assertions[scene.identifier].attributes.count > 1 && !aggressive)))){
         [self _invalidateAndFlushAssertion:_assertions[scene.identifier] rbsIdentifier:scene.identifier];
     }
     
@@ -504,13 +504,13 @@
         
         RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
         
-        _assertions[scene.identifier] = [self assertionWithTarget:target aggresive:aggresive];
+        _assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
         
         [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
         
         [self subscribeToBundleDeath:identifier];
         
-        HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggresive?@"aggressive":@"non-aggresive");
+        HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggressive?@"aggressive":@"non-aggressive");
     }
 }
 

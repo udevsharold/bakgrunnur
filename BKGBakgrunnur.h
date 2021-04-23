@@ -51,5 +51,5 @@
 //-(BOOL)invalidateAssertion:(NSString *)identifier;
 -(int)pidForBundleIdentifier:(NSString *)bundleIdentifier;
 -(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier;
--(void)acquireAssertionIfNecessary:(FBScene *)scene aggresive:(BOOL)aggresive;
+-(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive;
 @end
