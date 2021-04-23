@@ -176,11 +176,15 @@
 
 @interface RBSProcessIdentifier : NSObject
 @property (nonatomic,readonly) int pid;
++(id)identifierWithPid:(int)arg1 ;
++(id)identifierForIdentifier:(id)arg1 ;
++(id)identifierForCurrentProcess;
 @end
 
 @interface RBSTarget : NSObject
 @property (nonatomic,readonly) RBSProcessIdentifier * processIdentifier; //pid
 @property (nonatomic,readonly) RBSProcessIdentity * processIdentity;
+@property (nonatomic,copy,readonly) NSString * environment;
 +(id)targetWithProcessIdentity:(id)arg1 ;
 +(BOOL)supportsRBSXPCSecureCoding;
 +(id)currentProcess;
@@ -501,15 +505,19 @@
 @end
 
 @interface RBSAssertionIdentifier : NSObject
+@property (nonatomic,readonly) int pid;
 @end
+
 
 @interface RBSConnection : NSObject{
     NSMapTable* _acquiredAssertionsByIdentifier;
 }
 +(id)sharedInstance;
++(id)connectionQueue;
 -(BOOL)invalidateAssertion:(id)arg1 error:(NSError **)arg2 ;
 -(RBSAssertionIdentifier *)acquireAssertion:(id)arg1 error:(NSError **)arg2 ;
 -(BOOL)invalidateAssertionWithIdentifier:(id)arg1 error:(NSError **)arg2 ;
+-(void)subscribeToProcessDeath:(RBSProcessIdentifier *)arg1 handler:(/*^block*/id)arg2 ;
 @end
 
 @interface RBSXPCMessage : NSObject
@@ -1132,6 +1140,15 @@ typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
 @interface RBSAttribute : NSObject
 @end
 
+typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
+    RBSLegacyFlagAllowIdleSleep = 4,
+    RBSLegacyFlagAllowSuspendOnSleep = 16,
+    RBSLegacyFlagPreventTaskSuspend = 1,
+    RBSLegacyFlagPreventTaskThrottleDown = 2,
+    RBSLegacyFlagPreventThrottleDownUI = 32,
+    RBSLegacyFlagWantsForegroundResourcePriority = 8
+};
+
 @interface RBSLegacyAttribute : RBSAttribute
 +(id)attributeWithReason:(unsigned long long)arg1 flags:(unsigned long long)arg2 ;
 @end
@@ -1157,6 +1174,10 @@ typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
 +(id)grant;
 @end
 
+@interface RBSResistTerminationGrant : RBSGrant
++(id)grantWithResistance:(unsigned char)arg1 ;
+@end
+
 @interface RBSRunningReasonAttribute : RBSAttribute
 +(id)withReason:(unsigned long long)arg1 ;
 @end
@@ -1165,8 +1186,11 @@ typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
 @interface RBSAssertion : NSObject
 @property (nonatomic,readonly) RBSTarget * target;
 @property (nonatomic,copy,readonly) RBSAssertionIdentifier * identifier;
+@property (nonatomic,readonly) unsigned long long state;
+@property (getter=isValid,nonatomic,readonly) BOOL valid;
+@property (nonatomic,copy,readonly) NSArray * attributes;
 -(id)initWithExplanation:(NSString *)arg1 target:(RBSTarget *)arg2 attributes:(NSArray *)arg3 ;
 -(BOOL)acquireWithError:(NSError **)arg1 ;
--(BOOL)invalidateAssertion:(id)arg1 error:(out id*)arg2 ;
--(BOOL)invalidateAssertionWithIdentifier:(id)arg1 error:(out id*)arg2 ;
+-(void)acquireWithInvalidationHandler:(/*^block*/id)arg1 ;
+-(void)invalidate;
 @end

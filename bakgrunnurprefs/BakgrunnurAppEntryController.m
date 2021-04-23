@@ -57,6 +57,19 @@
         [darkWakeSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
         [appEntrySpecifiers addObject:darkWakeSpec];
         
+        //aggressive assertion
+        PSSpecifier *aggresiveAssertionGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        [aggresiveAssertionGroupSpec setProperty:[NSString stringWithFormat:@"Aggresively put %@ into backgrounding mode. Enabling this will prevent the UI of %@ from being throttled and try to use as much resources as needed.", self.title, self.title] forKey:@"footerText"];
+        [appEntrySpecifiers addObject:aggresiveAssertionGroupSpec];
+        
+        PSSpecifier *aggresiveAssertionSpec = [PSSpecifier preferenceSpecifierNamed:@"Aggresive" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [aggresiveAssertionSpec setProperty:@"Aggresive" forKey:@"label"];
+        [aggresiveAssertionSpec setProperty:@"aggresiveAssertion" forKey:@"key"];
+        [aggresiveAssertionSpec setProperty:@YES forKey:@"default"];
+        [aggresiveAssertionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+        [aggresiveAssertionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+        [appEntrySpecifiers addObject:aggresiveAssertionSpec];
+        
         //expiration
         PSSpecifier *expirationGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [expirationGroupSpec setProperty:@"Set the expiration time (s) for app to be retired/terminated. The countdown will begin when the app entered background or the device is locked. It'll be reset whenever the app is in foreground or active again. Default is 3 hours." forKey:@"footerText"];

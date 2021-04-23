@@ -49,6 +49,12 @@ static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
              }
              */
             [bakgrunnur invalidateQueue:bundleIdentifier];
+            
+            
+            NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
+            BOOL aggresiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"] boolValue] : YES;
+            [bakgrunnur acquireAssertionIfNecessary:scene aggresive:aggresiveAssertion];
+            
             HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
         }
         if (completion){
@@ -82,7 +88,7 @@ static void sceneMovedToBackground(FBScene *scene, void (^completion)()){
                     [bakgrunnur.advancedMonitoringIdentifiers addObject:bundleIdentifier];
                     [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                 }
-                [bakgrunnur presentBannerWithSubtitleIfNecessary:isImmortal?@"Immortal":@"Advanced" forBundle:bundleIdentifier];
+                [bakgrunnur presentBannerWithSubtitleIfPossible:isImmortal?@"Immortal":@"Advanced" forBundle:bundleIdentifier];
             }else{
                 double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                 expiration = expiration < 0 ? defaultExpirationTime : expiration;
@@ -166,7 +172,10 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                         [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:8 forBundleIdentifier:frontMostAppID];
                     }
                     
-                    
+                    if (isiOS14){
+                        BOOL aggresiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggresiveAssertion"] boolValue] : YES;
+                        [bakgrunnur acquireAssertionIfNecessary:scene aggresive:aggresiveAssertion];
+                    }
                     HBLogDebug(@"Reset expiration for %@", frontMostAppID);
                 }else if (!isUILocked && !isFrontMost){
                     if (isiOS14){
@@ -500,6 +509,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
 }
 %end
 
+/*
 //iOS 14 (needed else mediaserverd will try to invalidate the assertion - video is playing but no sound), maybe iOS 13?
 %hook RBSConnection
 -(BOOL)invalidateAssertion:(RBSAssertion *)assertion error:(NSError **)error{
@@ -512,15 +522,27 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             
             if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringAssertionIdentifiers containsObject:bundleIdentifier] && [bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
                 HBLogDebug(@"Deferred invalidation of assertion for %@", bundleIdentifier);
+                if (error){
+                    *error = nil;
+                }
                 return NO;
             }else if ([bakgrunnur.retiringAssertionIdentifiers containsObject:bundleIdentifier]){
-                [bakgrunnur fireAssertionRetiring:bundleIdentifier delay:1.0];
+                [bakgrunnur fireAssertionRetiring:bundleIdentifier delay:0.3];
             }
         }
     }
     return %orig;
 }
 %end
+*/
+/*
+%hook RBDaemon
+-(void)assertionManager:(id)arg1 didInvalidateAssertions:(id)arg2{
+    HBLogDebug(@"_clientInvalidateWithError");
+    return NO;
+}
+%end
+*/
 
 /*
  %hook SpringBoard

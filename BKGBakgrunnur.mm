@@ -1,6 +1,5 @@
 #import "common.h"
 #import "Shared.h"
-#import "SpringBoard.h"
 #import "BKGBakgrunnur.h"
 #import "NSTask.h"
 #include <pthread.h>
@@ -51,8 +50,8 @@
         self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
         self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
-        _retiringAssertionQueues = [NSMutableDictionary dictionary];
-        
+        _assertions = [NSMutableDictionary dictionary];
+
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -145,20 +144,6 @@
     }
 }
 
--(void)fireAssertionRetiring:(NSString *)identifier delay:(double)delay{
-    
-    if (_retiringAssertionQueues[identifier]){
-        dispatch_block_cancel(_retiringAssertionQueues[identifier]);
-    }
-    
-    _retiringAssertionQueues[identifier] = dispatch_block_create(static_cast<dispatch_block_flags_t>(0), ^{
-        [self.retiringAssertionIdentifiers removeObject:identifier];
-        [_retiringAssertionQueues removeObjectForKey:identifier];
-    });
-        
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (delay * NSEC_PER_SEC)),dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), _retiringAssertionQueues[identifier]);
-}
-
 -(void)retireScene:(id)timer{
     NSDictionary *userInfo = [timer userInfo];
     [self _retireScene:userInfo[@"identifier"]];
@@ -184,10 +169,6 @@
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
             
-            if (![self.retiringAssertionIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                [self.retiringAssertionIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-            
             UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
             [newSettings setForeground:NO];
             [newSettings setUnderLock:NO];
@@ -206,6 +187,8 @@
             
             
             [self updateLabelAccessory:identifier];
+            [self cleanAssertionsForBundle:identifier];
+
             HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
         }
     }];
@@ -238,9 +221,6 @@
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
             
-            if (![self.retiringAssertionIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                [self.retiringAssertionIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
             
             UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
             [newSettings setForeground:NO];
@@ -261,6 +241,7 @@
             //[self invalidateAssertion:identifier];
             [self.userInitiatedIdentifiers removeObject:identifier];
             [self updateLabelAccessory:identifier];
+            [self cleanAssertionsForBundle:identifier];
 
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                 [self updateDarkWakeState];
@@ -301,6 +282,7 @@
     }];
 }
 
+/*
 -(BOOL)invalidateAssertion:(NSString *)identifier{
     BOOL invalidated = NO;
     SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
@@ -322,6 +304,7 @@
     }
     return invalidated;
 }
+*/
 
 -(BOOL)isQueued:(NSString *)identifier{
     PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
@@ -437,6 +420,100 @@
     }
 }
 
+-(RBSAssertion *)assertionWithTarget:(RBSTarget *)target aggresive:(BOOL)aggresive{
+    //RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
+    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:7 flags:(aggresive?(RBSLegacyFlagPreventTaskSuspend | RBSLegacyFlagPreventTaskThrottleDown | RBSLegacyFlagPreventThrottleDownUI | RBSLegacyFlagWantsForegroundResourcePriority): RBSLegacyFlagPreventTaskSuspend)];
+    //RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
+    //RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
+    //RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
+    RBSHereditaryGrant *endpointInjectionGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.boardservices.endpoint-injection" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
+    RBSHereditaryGrant *visibilityGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.frontboard.visibility" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
+    return [[objc_getClass("RBSAssertion") alloc] initWithExplanation:[NSString stringWithFormat:@"Bakgrunnur injects Compound V into %@", target.environment] target:target attributes:@[legacyAttr, endpointInjectionGrant, visibilityGrant]];
+}
+
+-(RBSTarget *)targetFromBundle:(NSString *)identifier withTargetEnv:(NSString *)targetEnv{
+    return [objc_getClass("RBSTarget") targetWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
+}
+
+-(RBSAssertionIdentifier *)_reallyAcquireAssertion:(RBSAssertion *)assertion error:(NSError **)err{
+    NSError *error = nil;
+    [assertion acquireWithError:&error];
+    if (err){
+        *err = error;
+        return nil;
+    }
+    RBSAssertionIdentifier *rbsProcessID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:assertion error:&error];
+    if (err){
+        *err = error;
+        return nil;
+    }
+    return rbsProcessID;
+}
+
+-(void)_reallyInvalidateAssertion:(RBSAssertion *)assertion{
+    [assertion invalidate];
+    [[objc_getClass("RBSConnection") sharedInstance] invalidateAssertion:assertion error:nil];
+}
+
+-(void)_invalidateAndFlushAssertion:(RBSAssertion *)assertion rbsIdentifier:(NSString *)identifier{
+    [self _reallyInvalidateAssertion:assertion];
+    [_assertions removeObjectForKey:identifier];
+    HBLogDebug(@"Invalidated and flushed assertion for %@", identifier);
+}
+
+-(void)cleanAssertionsForBundle:(NSString *)identifier{
+    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+    SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
+    for (NSString *key in _assertions){
+        if ([key containsString:sbApp.bundleIdentifier]){
+            [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
+        }
+    }
+}
+
+-(void)cleanAssertionsForPid:(int)pid{
+    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+    SBApplication *sbApp = [sbAppController applicationWithPid:pid];
+    for (NSString *key in _assertions){
+        if ([key containsString:sbApp.bundleIdentifier]){
+            [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
+        }
+    }
+}
+
+-(void)subscribeToBundleDeath:(NSString *)identifier{
+    
+    RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier]];
+    if (processID){
+        [[objc_getClass("RBSConnection") sharedInstance] subscribeToProcessDeath:processID handler:^{
+            [self cleanAssertionsForPid:processID.pid];
+        }];
+    }
+}
+
+
+-(void)acquireAssertionIfNecessary:(FBScene *)scene aggresive:(BOOL)aggresive{
+    
+    NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+    
+    if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggresive) || (_assertions[scene.identifier].attributes.count > 1 && !aggresive)))){
+        [self _invalidateAndFlushAssertion:_assertions[scene.identifier] rbsIdentifier:scene.identifier];
+    }
+    
+    if (!_assertions[scene.identifier]){
+        
+        RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
+        
+        _assertions[scene.identifier] = [self assertionWithTarget:target aggresive:aggresive];
+        
+        [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
+        
+        [self subscribeToBundleDeath:identifier];
+        
+        HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggresive?@"aggressive":@"non-aggresive");
+    }
+}
+
 -(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime{
     /*
     RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
@@ -474,14 +551,14 @@
     [self.queuedIdentifiers addObject:identifier];
     [self updateLabelAccessory:identifier];
     
-    [self presentBannerWithSubtitleIfNecessary:[NSString stringWithFormat:@"%@, %@", removeGracefully?@"Retire":@"Terminate", [self formattedExpiration:expTime]] forBundle:identifier];
+    [self presentBannerWithSubtitleIfPossible:[NSString stringWithFormat:@"%@, %@", removeGracefully?@"Retire":@"Terminate", [self formattedExpiration:expTime]] forBundle:identifier];
     
     //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
     //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
     //[sbApp _setNewlyInstalled:YES];
 }
 
--(void)presentBannerWithSubtitleIfNecessary:(NSString *)subtitle forBundle:(NSString *)identifier{
+-(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier{
     if (self.presentBanner && !self.temporarilyHaltBanner){
         [self presentBannerWithSubtitle:subtitle forBundle:identifier];
     }

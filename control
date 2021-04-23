@@ -1,7 +1,7 @@
 Package: com.udevs.bakgrunnur
 Name: Bakgrunnur
 Depends: mobilesubstrate (>= 0.9.5000), com.rpetrich.rocketbootstrap (>= 1.0.3), com.opa334.ccsupport, firmware(>=13.0), applist, com.udevs.vexillarius
-Version: 1.6.0
+Version: 1.6.2
 Architecture: iphoneos-arm
 Description: Truly backgrounding your apps
 Maintainer: udevs

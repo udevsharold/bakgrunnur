@@ -1,7 +1,10 @@
 #include <xpc/xpc.h>
+#import "SpringBoard.h"
+
+@class RBSAssertion, FBScene;
 
 @interface BKGBakgrunnur : NSObject{
-    NSMutableDictionary *_retiringAssertionQueues;
+    NSMutableDictionary <NSString *, RBSAssertion *>*_assertions;
 }
 @property(nonatomic, strong) NSMutableArray *retiringIdentifiers;
 @property(nonatomic, strong) NSMutableArray *retiringAssertionIdentifiers;
@@ -45,8 +48,8 @@
 -(void)notifySleepingState:(BOOL)sleep;
 -(void)launchBundleIdentifier:(NSString *)bundleID trusted:(BOOL)trusted suspended:(BOOL)suspend withPayloadURL:(NSString *)payloadURL completion:(void (^)(NSError *error))completionHandler;
 -(BOOL)isQueued:(NSString *)identifier;
--(BOOL)invalidateAssertion:(NSString *)identifier;
--(void)fireAssertionRetiring:(NSString *)identifier delay:(double)delay;
+//-(BOOL)invalidateAssertion:(NSString *)identifier;
 -(int)pidForBundleIdentifier:(NSString *)bundleIdentifier;
--(void)presentBannerWithSubtitleIfNecessary:(NSString *)subtitle forBundle:(NSString *)identifier;
+-(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier;
+-(void)acquireAssertionIfNecessary:(FBScene *)scene aggresive:(BOOL)aggresive;
 @end
