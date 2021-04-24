@@ -8,7 +8,6 @@
     NSMutableDictionary <NSString *, RBSAssertion *>*_assertions;
 }
 @property(nonatomic, strong) NSMutableArray *retiringIdentifiers;
-@property(nonatomic, strong) NSMutableArray *retiringAssertionIdentifiers;
 @property(nonatomic, strong) NSMutableArray *queuedIdentifiers;
 @property(nonatomic, strong) NSMutableArray *immortalIdentifiers;
 @property(nonatomic, strong) NSMutableArray *advancedMonitoringIdentifiers;

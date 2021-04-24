@@ -42,7 +42,6 @@
         self.sleepingState = 0;
         
         self.retiringIdentifiers = [[NSMutableArray alloc] init];
-        self.retiringAssertionIdentifiers = [[NSMutableArray alloc] init];
         self.queuedIdentifiers = [[NSMutableArray alloc] init];
         self.immortalIdentifiers = [[NSMutableArray alloc] init];
         self.advancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
