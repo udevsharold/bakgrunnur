@@ -84,11 +84,29 @@ static void sceneMovedToBackground(FBScene *scene, void (^completion)()){
             if (isImmortal || isAdvancedMonitoring){
                 [bakgrunnur.immortalIdentifiers addObject:bundleIdentifier];
                 [bakgrunnur updateLabelAccessory:bundleIdentifier];
+                NSString *advBannerVerbose = @"Advanced";
                 if (isAdvancedMonitoring){
+                    NSMutableArray *advBannerVerboseArray = [NSMutableArray array];
+                    BOOL cpuUsageEnabled = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"] boolValue] : NO;
+                    if (cpuUsageEnabled){
+                        [advBannerVerboseArray addObject:@"C"];
+                    }
+                    int systemCallsType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"] intValue] : 0;
+                    if (systemCallsType > 0){
+                        [advBannerVerboseArray addObject:@"S"];
+                    }
+                    int networkTransmissionType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"] intValue] : 0;
+                    if (networkTransmissionType > 0){
+                        [advBannerVerboseArray addObject:@"N"];
+                    }
+                    if (advBannerVerboseArray.count > 0){
+                        advBannerVerbose = [advBannerVerboseArray componentsJoinedByString:@""];
+                        advBannerVerbose = [NSString stringWithFormat:@"Advanced (%@)", advBannerVerbose];
+                    }
                     [bakgrunnur.advancedMonitoringIdentifiers addObject:bundleIdentifier];
                     [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                 }
-                [bakgrunnur presentBannerWithSubtitleIfPossible:isImmortal?@"Immortal":@"Advanced" forBundle:bundleIdentifier];
+                [bakgrunnur presentBannerWithSubtitleIfPossible:isImmortal?@"Immortal":advBannerVerbose forBundle:bundleIdentifier];
             }else{
                 double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
                 expiration = expiration < 0 ? defaultExpirationTime : expiration;
@@ -154,17 +172,21 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                     
                     BOOL alreadyQueued = [bakgrunnur.queuedIdentifiers containsObject:frontMostAppID] || [bakgrunnur.immortalIdentifiers containsObject:frontMostAppID] || [bakgrunnur.advancedMonitoringIdentifiers containsObject:frontMostAppID];
                     
+                    BOOL revokedOnceToken = NO;
                     if (alreadyQueued && ![persistenceOnce containsObject:frontMostAppID]){
                         [bakgrunnur.grantedOnceIdentifiers removeObject:frontMostAppID];
+                        [bakgrunnur cleanAssertionsForBundle:frontMostAppID];
+                        [bakgrunnur.userInitiatedIdentifiers removeObject:frontMostAppID];
+                        revokedOnceToken = YES;
                         HBLogDebug(@"Revoked \"Once\" token for %@", frontMostAppID);
                     }
                     
                     [bakgrunnur invalidateQueue:frontMostAppID];
                     
-                    if (isiOS14){
-                        if (![bakgrunnur.userInitiatedIdentifiers containsObject:bundleIdentifier]){
+                    if (isiOS14 && !revokedOnceToken){
+                        if (![bakgrunnur.userInitiatedIdentifiers containsObject:frontMostAppID]){
                             HBLogDebug(@"User initiated launch %@", frontMostAppID);
-                            [bakgrunnur.userInitiatedIdentifiers addObject:bundleIdentifier];
+                            [bakgrunnur.userInitiatedIdentifiers addObject:frontMostAppID];
                         }
                     }
                     
@@ -172,7 +194,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                         [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:8 forBundleIdentifier:frontMostAppID];
                     }
                     
-                    if (isiOS14){
+                    if (isiOS14 && !revokedOnceToken){
                         BOOL aggressiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"] boolValue] : YES;
                         [bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
                     }
@@ -224,6 +246,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
             
         }else if (([enabledIdentifier containsObject:bundleIdentifier] || (![persistenceOnce containsObject:bundleIdentifier] && [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier])) && !(pid > 0)){
             [bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
+            [bakgrunnur cleanAssertionsForBundle:bundleIdentifier];
             [bakgrunnur invalidateQueue:bundleIdentifier];
         }
         //else if (![enabledIdentifier containsObject:bundleIdentifier] && ([bakgrunnur.queuedIdentifiers containsObject:bundleIdentifier] || [bakgrunnur.immortalIdentifiers containsObject:bundleIdentifier]){

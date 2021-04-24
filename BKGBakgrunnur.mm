@@ -433,7 +433,7 @@
 }
 
 -(RBSTarget *)targetFromBundle:(NSString *)identifier withTargetEnv:(NSString *)targetEnv{
-    return [objc_getClass("RBSTarget") targetWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
+    return [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
 }
 
 -(RBSAssertionIdentifier *)_reallyAcquireAssertion:(RBSAssertion *)assertion error:(NSError **)err{
@@ -487,7 +487,7 @@
 }
 
 -(void)subscribeToBundleDeath:(NSString *)identifier{
-    RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier]];
+    RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[self pidForBundleIdentifier:identifier]];
     if (processID){
         [[objc_getClass("RBSConnection") sharedInstance] subscribeToProcessDeath:processID handler:^{
             [self cleanAssertionsForPid:processID.pid];
@@ -526,7 +526,7 @@
     RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
     RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
 
-    RBSTarget *target = [objc_getClass("RBSTarget") targetWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier]];
+    RBSTarget *target = [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier]];
     
     if (!self.backgroundAssertion){
     NSError *err = nil;

@@ -52,4 +52,5 @@
 -(int)pidForBundleIdentifier:(NSString *)bundleIdentifier;
 -(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier;
 -(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive;
+-(void)cleanAssertionsForBundle:(NSString *)identifier;
 @end
