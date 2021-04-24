@@ -1,4 +1,5 @@
 #include <xpc/xpc.h>
+#include <os/lock.h>
 #import "SpringBoard.h"
 
 @class RBSAssertion, FBScene;

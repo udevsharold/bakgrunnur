@@ -31,6 +31,7 @@ void display_usage(){
             "       -p, --halfasleep: allow app to put device into half-asleep state when locked\n"
             "                            0 - disable\n"
             "                            1 - enable\n"
+            "       -g, --aggressive: enable aggresive mode\n"
             "       -r, --retire: retire backgrounding app\n"
             "                     app will become inactive gracefully\n"
             "                     will be overidden if it becomes active again\n"
@@ -180,6 +181,7 @@ int main(int argc, char *argv[], char *envp[]) {
         { "immortal", no_argument, 0, 'I'},
         { "notifications", required_argument, 0, 'n'},
         { "halfasleep", required_argument, 0, 'p'},
+        { "aggressive", required_argument, 0, 'g'},
         { "foreground", required_argument, 0, 'F'},
         { "advanced", no_argument, 0, 'A'},
         { "cpuusage", required_argument, 0, 'C'},
@@ -210,7 +212,7 @@ int main(int argc, char *argv[], char *envp[]) {
     double timeSpan = -1.0;
     
     int opt;
-    while ((opt = getopt_long(argc, argv, "i:adrEDRe:hfXIF:n:Ac:s:C:K:k:p:N:u:l:", longopts, NULL)) != -1){
+    while ((opt = getopt_long(argc, argv, "i:adrEDRe:hfXIF:n:Ac:s:C:K:k:p:N:u:l:g:", longopts, NULL)) != -1){
         switch (opt){
             case 'i':
                 identifierDict[@"identifier"] = [NSString stringWithCString:optarg encoding:NSUTF8StringEncoding];
@@ -288,6 +290,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 break;
             case 'p':
                 identifierDict[@"darkWake"] = @([[NSString stringWithCString:optarg encoding:NSUTF8StringEncoding] boolValue]);
+                break;
+            case 'g':
+                identifierDict[@"aggressiveAssertion"] = @([[NSString stringWithCString:optarg encoding:NSUTF8StringEncoding] boolValue]);
                 break;
             case 'F':
                 identifierDict[@"foreground"] = @([[NSString stringWithCString:optarg encoding:NSUTF8StringEncoding] boolValue]);

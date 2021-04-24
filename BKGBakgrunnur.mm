@@ -159,7 +159,8 @@
     NSMutableArray *toBeRemovedQueuedImmortalIdentifiers = [[NSMutableArray alloc] init];
     NSMutableArray *toBeRemovedAdvancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
     NSMutableArray *toBeRemovedAdvancedMonitoringHistoryIdentifiers = [[NSMutableArray alloc] init];
-    
+    NSMutableArray *toBeRemovedAssertionIdentifiers = [[NSMutableArray alloc] init];
+
     
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
         NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
@@ -184,20 +185,21 @@
             [toBeRemovedQueuedImmortalIdentifiers addObject:identifier];
             [toBeRemovedAdvancedMonitoringIdentifiers addObject:identifier];
             [toBeRemovedAdvancedMonitoringHistoryIdentifiers addObject:identifier];
-            
+            [toBeRemovedAssertionIdentifiers addObject:identifier];
             
             [self updateLabelAccessory:identifier];
-            [self cleanAssertionsForBundle:identifier];
 
             HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
         }
     }];
+    
     [self.queuedIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
     [self.immortalIdentifiers removeObjectsInArray:toBeRemovedQueuedImmortalIdentifiers];
     [self.advancedMonitoringIdentifiers removeObjectsInArray:toBeRemovedAdvancedMonitoringIdentifiers];
     [self.grantedOnceIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
     [self.userInitiatedIdentifiers removeObjectsInArray:identifiers];
-    
+    [self cleanAssertionsForBundles:toBeRemovedAssertionIdentifiers];
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         [self updateDarkWakeState];
     });
@@ -462,19 +464,23 @@
 }
 
 -(void)cleanAssertionsForBundle:(NSString *)identifier{
-    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
-    SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
-    for (NSString *key in _assertions){
-        if ([key containsString:sbApp.bundleIdentifier]){
+    for (NSString *key in [_assertions allKeys]){
+        if ([key containsString:identifier]){
             [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
         }
+    }
+}
+
+-(void)cleanAssertionsForBundles:(NSArray <NSString *>*)identifiers{
+    for (NSString *identifier in identifiers){
+        [self cleanAssertionsForBundle:identifier];
     }
 }
 
 -(void)cleanAssertionsForPid:(int)pid{
     SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
     SBApplication *sbApp = [sbAppController applicationWithPid:pid];
-    for (NSString *key in _assertions){
+    for (NSString *key in [_assertions allKeys]){
         if ([key containsString:sbApp.bundleIdentifier]){
             [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
         }
@@ -482,7 +488,6 @@
 }
 
 -(void)subscribeToBundleDeath:(NSString *)identifier{
-    
     RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[[objc_getClass("FBSSystemService") sharedService] pidForApplication:identifier]];
     if (processID){
         [[objc_getClass("RBSConnection") sharedInstance] subscribeToProcessDeath:processID handler:^{
