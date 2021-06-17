@@ -8,6 +8,9 @@
 - (NSArray *)specifiers {
     if (!_specifiers) {
         
+        _expanded = NO;
+        _manuallyExpanded = NO;
+        
         NSMutableArray *appEntrySpecifiers = [NSMutableArray array];
         
         _staticSpecifiers = [NSMutableArray array];
@@ -218,10 +221,10 @@
     setValueForConfigKey(self.specifier.identifier, key, value);
     
     if ([key isEqualToString:@"enabled"]){
-        if ([value boolValue]){
+        if ([value boolValue] && !_expanded){
             [self insertContiguousSpecifiers:_expandableSpecifiers afterSpecifier:specifier animated:YES];
             _expanded = YES;
-        }else{
+        }else if(![value boolValue] && _expanded){
             [self removeContiguousSpecifiers:_expandableSpecifiers animated:YES];
             _expanded = NO;
         }
@@ -263,7 +266,6 @@
     [self reloadSpecifier:_timeSpanSpecifier animated:YES];
     [super viewWillAppear:animated];
 }
-
 
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
     [super tableView:tableView didSelectRowAtIndexPath:indexPath];
