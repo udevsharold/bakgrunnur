@@ -40,3 +40,10 @@ typedef NS_ENUM(NSUInteger, FBSTerminationReason) {
     FBSTerminationReasonLogOut,
     FBSTerminationReasonUnknown
 };
+
+typedef NS_ENUM(NSUInteger, BKGBackgroundType) {
+    BKGBackgroundTypeTerminate = 0,
+    BKGBackgroundTypeRetire,
+    BKGBackgroundTypeImmortal,
+    BKGBackgroundTypeAdvanced
+};

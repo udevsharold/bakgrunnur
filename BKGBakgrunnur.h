@@ -37,7 +37,7 @@
 -(void)invalidateQueue:(NSString *)identifier;
 -(void)invalidateAllQueues;
 -(void)invalidateAllQueuesIn:(NSArray *)identifiers;
--(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime;
+-(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime  completion:(void (^)())completionHandler;
 -(NSArray<SBSApplicationShortcutItem*>*) stackBakgrunnurShortcut:(NSArray<SBSApplicationShortcutItem*>*)stockShortcuts bundleIdentifier:(NSString *)bundleIdentifier;
 -(void)updateLabelAccessory:(NSString *)identifier;
 -(void)updateLabelAccessoryForDockItem:(NSString *)identifier;
@@ -53,4 +53,7 @@
 -(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier;
 -(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive;
 -(void)cleanAssertionsForBundle:(NSString *)identifier;
+//-(BOOL)invalidateAssertionForBundle:(NSString *)identifier;
+//-(void)setTaskState:(RBSTaskState)rbsState forBundle:(NSString *)identifier;
+-(NSString *)formattedExpiration:(double)seconds;
 @end

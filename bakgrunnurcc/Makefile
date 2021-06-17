@@ -8,6 +8,7 @@ BUNDLE_NAME = Bakgrunnur
 Bakgrunnur_BUNDLE_EXTENSION = bundle
 Bakgrunnur_FILES = $(wildcard *.m)
 Bakgrunnur_PRIVATE_FRAMEWORKS = ControlCenterUIKit Preferences
+Bakgrunnur_FRAMEWORKS = UIKit QuartzCore
 Bakgrunnur_INSTALL_PATH = /Library/ControlCenter/Bundles/
 Bakgrunnur_CFLAGS = -fobjc-arc
 

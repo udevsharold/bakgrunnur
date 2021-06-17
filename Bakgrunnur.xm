@@ -1,5 +1,5 @@
 #import "common.h"
-#import "Shared.h"
+#import "BKGShared.h"
 #import "SpringBoard.h"
 #import "BKGBakgrunnur.h"
 #import "NSTask.h"
@@ -51,8 +51,7 @@ static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
             [bakgrunnur invalidateQueue:bundleIdentifier];
             
             
-            NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
-            BOOL aggressiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"] boolValue] : YES;
+            BOOL aggressiveAssertion = boolValueForConfigKeyWithPrefs(bundleIdentifier, @"aggressiveAssertion", YES, prefs);
             [bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
             
             HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
@@ -76,45 +75,96 @@ static void sceneMovedToBackground(FBScene *scene, void (^completion)()){
         if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && (![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]) && scene.valid && !alreadyQueued){
             
             NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:bundleIdentifier];
-            BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 2) : NO;
-            BOOL isAdvancedMonitoring = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 3) : NO;
-            BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
+            BOOL isImmortal = unsignedLongValueForConfigKeyWithPrefsAndIndex(@"retire", BKGBackgroundTypeRetire, prefs, identifierIdx) == BKGBackgroundTypeImmortal;
+            BOOL isAdvancedMonitoring = unsignedLongValueForConfigKeyWithPrefsAndIndex(@"retire", BKGBackgroundTypeRetire, prefs, identifierIdx) == BKGBackgroundTypeAdvanced;
+            BOOL enabledAppNotifications = boolValueForConfigKeyWithPrefsAndIndex(@"enabledAppNotifications", NO, prefs, identifierIdx);
+
             //[bakgrunnur.grantedOnceIdentifiers removeObject:bundleIdentifier];
             [bakgrunnur invalidateQueue:bundleIdentifier];
             if (isImmortal || isAdvancedMonitoring){
                 [bakgrunnur.immortalIdentifiers addObject:bundleIdentifier];
                 [bakgrunnur updateLabelAccessory:bundleIdentifier];
-                NSString *advBannerVerbose = @"Advanced";
+                NSString *verboseText = @"";
+                NSMutableArray *verboseArray = [NSMutableArray array];
+                NSMutableArray *typesVerboseArray = [NSMutableArray array];
+                
+                BOOL darkWake = boolValueForConfigKeyWithPrefsAndIndex(@"darkWake", NO, prefs, identifierIdx);
+
                 if (isAdvancedMonitoring){
-                    NSMutableArray *advBannerVerboseArray = [NSMutableArray array];
-                    BOOL cpuUsageEnabled = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"] boolValue] : NO;
+                    [verboseArray addObject:@"Advanced"];
+                    
+                    BOOL cpuUsageEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuUsageEnabled", NO, prefs, identifierIdx);
                     if (cpuUsageEnabled){
-                        [advBannerVerboseArray addObject:@"C"];
+                        [typesVerboseArray addObject:@"C"];
                     }
-                    int systemCallsType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"] intValue] : 0;
+                    
+                    int systemCallsType = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsType", 0, prefs, identifierIdx);
                     if (systemCallsType > 0){
-                        [advBannerVerboseArray addObject:@"S"];
+                        [typesVerboseArray addObject:@"S"];
                     }
-                    int networkTransmissionType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"] intValue] : 0;
+                    
+                    int networkTransmissionType = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionType", 0, prefs, identifierIdx);
                     if (networkTransmissionType > 0){
-                        [advBannerVerboseArray addObject:@"N"];
+                        [typesVerboseArray addObject:@"N"];
                     }
-                    if (advBannerVerboseArray.count > 0){
-                        advBannerVerbose = [advBannerVerboseArray componentsJoinedByString:@""];
-                        advBannerVerbose = [NSString stringWithFormat:@"Advanced (%@)", advBannerVerbose];
+                    
+                    if (darkWake){
+                        [typesVerboseArray addObject:@"W"];
                     }
+                    
+                    NSString *enabledTypes = [typesVerboseArray componentsJoinedByString:@""];
+                    if (enabledTypes.length > 0){
+                        [verboseArray addObject:enabledTypes];
+                    }
+                    
+                    if (verboseArray.count > 0){
+                        verboseText = [verboseArray componentsJoinedByString:@" | "];
+                    }
+                    
                     [bakgrunnur.advancedMonitoringIdentifiers addObject:bundleIdentifier];
                     [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
+                }else{
+                    
+                    [verboseArray addObject:@"Immortal"];
+
+                    if (darkWake){
+                        [typesVerboseArray addObject:@"W"];
+                    }
+                    
+                    NSString *enabledTypes = [typesVerboseArray componentsJoinedByString:@""];
+                    if (enabledTypes.length > 0){
+                        [verboseArray addObject:enabledTypes];
+                    }
+                    
+                    if (verboseArray.count > 0){
+                        verboseText = [verboseArray componentsJoinedByString:@" | "];
+                    }
                 }
-                [bakgrunnur presentBannerWithSubtitleIfPossible:isImmortal?@"Immortal":advBannerVerbose forBundle:bundleIdentifier];
+                [bakgrunnur presentBannerWithSubtitleIfPossible:verboseText forBundle:bundleIdentifier];
             }else{
-                double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
+                double expiration = doubleValueForConfigKeyWithPrefsAndIndex(@"expiration", defaultExpirationTime, prefs, identifierIdx);
                 expiration = expiration < 0 ? defaultExpirationTime : expiration;
                 expiration = expiration == 0 ? 1 : expiration;
                 
                 HBLogDebug(@"expiration %f", expiration);
                 
-                [bakgrunnur queueProcess:bundleIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
+                BOOL removeGracefully = unsignedLongValueForConfigKeyWithPrefsAndIndex(@"retire", YES, prefs, identifierIdx) == BKGBackgroundTypeRetire;
+                
+                [bakgrunnur queueProcess:bundleIdentifier softRemoval:removeGracefully expirationTime:expiration completion:^{
+                    
+                    NSMutableArray *verboseArray = [NSMutableArray array];
+                    [verboseArray addObject:removeGracefully?@"Retire":@"Terminate"];
+                    [verboseArray addObject:[bakgrunnur formattedExpiration:expiration]];
+                    
+                    BOOL darkWake = boolValueForConfigKeyWithPrefsAndIndex(@"darkWake", NO, prefs, identifierIdx);
+                    if (darkWake){
+                        [verboseArray addObject:@"W"];
+                    }
+                    
+                    NSString *verboseText = [verboseArray componentsJoinedByString:@" | "];
+                    
+                    [bakgrunnur presentBannerWithSubtitleIfPossible:verboseText forBundle:bundleIdentifier];
+                }];
             }
             
             if (enabledAppNotifications){
@@ -158,8 +208,8 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
         if (([enabledIdentifier containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]) && ![bakgrunnur.retiringIdentifiers containsObject:bundleIdentifier]  && (pid > 0)){
             
             HBLogDebug(@"ENTER");
-            BOOL enabledAppNotifications = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"enabledAppNotifications"] boolValue] : NO;
-            
+            BOOL enabledAppNotifications = boolValueForConfigKeyWithPrefsAndIndex(@"enabledAppNotifications", NO, prefs, identifierIdx);
+
             BOOL isFrontMost = NO;
             BOOL isUILocked = [[%c(SBLockScreenManager) sharedInstance] isUILocked];
             
@@ -195,7 +245,7 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
                     }
                     
                     if (isiOS14 && !revokedOnceToken){
-                        BOOL aggressiveAssertion = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"aggressiveAssertion"] boolValue] : YES;
+                        BOOL aggressiveAssertion = boolValueForConfigKeyWithPrefsAndIndex(@"aggressiveAssertion", YES, prefs, identifierIdx);
                         [bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
                     }
                     HBLogDebug(@"Reset expiration for %@", frontMostAppID);
@@ -624,23 +674,17 @@ static NSArray *getAllEntries(NSString *keyName, NSString *keyIdentifier){
 }
 
 static void reloadPrefs(){
-    prefs = nil;
-    NSData *data = [NSData dataWithContentsOfFile:PREFS_PATH];
-    if (data){
-        prefs = [NSPropertyListSerialization propertyListWithData:data options:0 format:nil error:nil];
-    }else{
-        prefs = @{};
-    }
+    prefs = getPrefs();
     
-    enabled = prefs[@"enabled"] ?  [prefs[@"enabled"] boolValue] : YES;
-    quickActionMaster = prefs[@"quickActionMaster"] ?  [prefs[@"quickActionMaster"] boolValue] : YES;
-    quickActionOnce = prefs[@"quickActionOnce"] ?  [prefs[@"quickActionOnce"] boolValue] : NO;
+    enabled = boolValueForKeyWithPrefs(@"enabled", YES, prefs);
+    quickActionMaster = boolValueForKeyWithPrefs(@"quickActionMaster", YES, prefs);
+    quickActionOnce = boolValueForKeyWithPrefs(@"quickActionOnce", NO, prefs);
     persistenceOnce = getPersistenceOnceArray();
     
     BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
     
     if (@available(iOS 14.0, *)){
-        bakgrunnur.presentBanner = prefs[@"presentBanner"] ? [prefs[@"presentBanner"] boolValue] : YES;
+        bakgrunnur.presentBanner = boolValueForKeyWithPrefs(@"presentBanner", YES, prefs);
     }
     
     if (prefs && [prefs[@"enabledIdentifier"] firstObject] != nil){
@@ -672,10 +716,9 @@ static void reloadPrefs(){
     
     double oldGlobalTimeSpan = globalTimeSpan;
     
-    preferredAccessoryType = prefs[@"preferredAccessoryType"] ? [prefs[@"preferredAccessoryType"] longLongValue] : 2;
-    showIndicatorOnDock = prefs[@"showIndicatorOnDock"] ? [prefs[@"showIndicatorOnDock"] boolValue] : YES;
-    //showForceTouchShortcut = prefs[@"showForceTouchShortcut"] ? [prefs[@"showForceTouchShortcut"] boolValue] : YES;
-    globalTimeSpan = (prefs[@"timeSpan"] && [prefs[@"timeSpan"] length] > 0) ? [prefs[@"timeSpan"] doubleValue]/2.0 : 1800.0/2.0;
+    preferredAccessoryType = longLongValueForKeyWithPrefs(@"preferredAccessoryType", 2, prefs);
+    showIndicatorOnDock = boolValueForKeyWithPrefs(@"showIndicatorOnDock", YES, prefs);
+    globalTimeSpan = doubleValueForKeyWithPrefs(@"timeSpan", 1800.0, prefs)/2.0;
     globalTimeSpan = globalTimeSpan <= 0.0 ? 1.0 : globalTimeSpan;
     
     
@@ -685,7 +728,7 @@ static void reloadPrefs(){
         NSUInteger idx = 0;
         for (NSString *identifier in allEntriesIdentifier){
             if ([enabledIdentifier containsObject:identifier]){
-                BOOL enabledAppNotifications = prefs[@"enabledIdentifier"][idx][@"enabledAppNotifications"] ? [prefs[@"enabledIdentifier"][idx][@"enabledAppNotifications"] boolValue] : NO;
+                BOOL enabledAppNotifications = boolValueForConfigKeyWithPrefsAndIndex(@"enabledAppNotifications", NO, prefs, idx);
                 [[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:enabledAppNotifications?4:8 forBundleIdentifier:identifier];
             }
             idx++;
@@ -716,33 +759,34 @@ static void cliRequest(){
     BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
     NSDictionary *pending = prefs[@"pendingRequest"];
     if (pending){
-        if (pending[@"retire"] && [pending[@"retire"] boolValue]){
+        NSString *bundleIdentifier = pending[@"identifier"];
+
+        if (boolValueForKeyWithPrefs(@"retire", NO, pending)){
             if (pending[@"expiration"]){
                 [bakgrunnur.grantedOnceIdentifiers removeObject:pending[@"identifier"]];
                 [bakgrunnur invalidateQueue:pending[@"identifier"]];
-                [bakgrunnur queueProcess:pending[@"identifier"] softRemoval:YES expirationTime:[pending[@"expiration"] doubleValue]];
+                [bakgrunnur queueProcess:pending[@"identifier"] softRemoval:YES expirationTime:[pending[@"expiration"] doubleValue] completion:nil];
             }else{
                 [bakgrunnur _retireScene:pending[@"identifier"]];
             }
         }
-        if (pending[@"remove"] && [pending[@"remove"] boolValue]){
+        if (boolValueForKeyWithPrefs(@"remove", NO, pending)){
             if (pending[@"expiration"]){
                 [bakgrunnur.grantedOnceIdentifiers removeObject:pending[@"identifier"]];
                 [bakgrunnur invalidateQueue:pending[@"identifier"]];
-                [bakgrunnur queueProcess:pending[@"identifier"] softRemoval:NO expirationTime:[pending[@"expiration"] doubleValue]];
+                [bakgrunnur queueProcess:pending[@"identifier"] softRemoval:NO expirationTime:[pending[@"expiration"] doubleValue] completion:nil];
             }else{
                 [bakgrunnur _terminateProcess:pending[@"identifier"]];
             }
         }
         if (pending[@"foreground"]){
-            if ([pending[@"foreground"] boolValue]){
-                
-                
+            if (boolValueForKeyWithPrefs(@"foreground", NO, pending)){
+
                 FBSceneManager *sceneManager  = [%c(FBSceneManager) sharedInstance];
                 NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
-                
+
                 [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
-                    if ([pending[@"identifier"] isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
+                    if ([bundleIdentifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
                         
                         //apply foreground
                         FBSMutableSceneSettings *backgroundingSceneSettings = scene.mutableSettings;
@@ -753,8 +797,10 @@ static void cliRequest(){
                         
                         //add to queues
                         NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                        BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 2) : NO;
-                        BOOL isAdvancedMonitoring = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] == 3) : NO;
+
+                        BOOL isImmortal = unsignedLongValueForConfigKeyWithPrefsAndIndex(@"retire", BKGBackgroundTypeRetire, prefs, identifierIdx) == BKGBackgroundTypeImmortal;
+                        BOOL isAdvancedMonitoring = unsignedLongValueForConfigKeyWithPrefsAndIndex(@"retire", BKGBackgroundTypeRetire, prefs, identifierIdx) == BKGBackgroundTypeAdvanced;
+
                         [bakgrunnur.grantedOnceIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
                         [bakgrunnur invalidateQueue:scene.clientProcess.identity.embeddedApplicationIdentifier];
                         if (isImmortal || isAdvancedMonitoring){
@@ -765,18 +811,20 @@ static void cliRequest(){
                                 [bakgrunnur startAdvancedMonitoringWithInterval:globalTimeSpan];
                             }
                         }else{
-                            double expiration = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] && [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] length] > 0) ? [prefs[@"enabledIdentifier"][identifierIdx][@"expiration"] doubleValue] : defaultExpirationTime;
+                            double expiration = doubleValueForConfigKeyWithPrefsAndIndex(@"expiration", defaultExpirationTime, prefs, identifierIdx);
                             expiration = expiration < 0 ? defaultExpirationTime : expiration;
                             expiration = expiration == 0 ? 1 : expiration;
                             
-                            [bakgrunnur queueProcess:scene.clientProcess.identity.embeddedApplicationIdentifier  softRemoval:(identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"retire"] boolValue] : YES expirationTime:expiration];
+                            BOOL removeGracefully = unsignedLongValueForConfigKeyWithPrefs(bundleIdentifier, @"retire", YES, prefs) == BKGBackgroundTypeRetire;
+
+                            [bakgrunnur queueProcess:bundleIdentifier softRemoval:removeGracefully expirationTime:expiration completion:nil];
                         }
                         
                         *stop = YES;
                     }
                 }];
             }else{
-                [bakgrunnur _retireScene:pending[@"identifier"]];
+                [bakgrunnur _retireScene:bundleIdentifier];
             }
         }
         

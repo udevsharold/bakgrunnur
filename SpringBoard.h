@@ -27,7 +27,6 @@
 -(void)setTerminationResistance:(unsigned char)arg1 ;
 -(void)setIsBeingDebugged:(BOOL)arg1 ;
 -(void)setPreventIdleSleep:(BOOL)arg1 ;
-
 @end
 
 @interface RBSProcessHandle : NSObject
@@ -42,6 +41,8 @@
 @property (assign,nonatomic) unsigned char terminationResistance;
 @property (getter=isRunning,nonatomic,readonly) BOOL running;
 @property (nonatomic,readonly) RBSProcessHandle * process;
+@property (nonatomic,copy) NSSet * legacyAssertions;
+@property (nonatomic,copy) NSSet * primitiveAssertions;
 +(id)stateWithProcess:(id)arg1 ;
 -(void)setTaskState:(unsigned char)arg1 ;
 -(void)setDebugState:(unsigned char)arg1 ;
@@ -61,7 +62,13 @@
 -(void)encodeWithPreviousState:(id)arg1 ;
 @end
 
-
+typedef NS_ENUM(NSUInteger, RBSTaskState) {
+    RBSTaskStateUnknown = 0,
+    RBSTaskStateNone = 1,
+    RBSTaskStateRunning = 2,
+    RBSTaskStateRunningSuspended = 3,
+    RBSTaskStateRunningActive = 4,
+};
 
 @interface RBProcess : NSObject
 @property (nonatomic,copy,readonly) RBSProcessIdentity * identity;
@@ -1182,6 +1189,12 @@ typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
 +(id)withReason:(unsigned long long)arg1 ;
 @end
 
+@interface RBSLimitation : RBSAttribute
+@end
+
+@interface RBSCPUMaximumUsageLimitation : RBSLimitation
++(id)limitationForRole:(unsigned char)arg1 withPercentage:(unsigned long long)arg2 duration:(double)arg3 violationPolicy:(unsigned long long)arg4 ;
+@end
 
 @interface RBSAssertion : NSObject
 @property (nonatomic,readonly) RBSTarget * target;

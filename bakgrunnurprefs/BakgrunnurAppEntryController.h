@@ -20,17 +20,20 @@
 -(BOOL)isEqualToSpecifier:(id)arg1 ;
 @end
 
-@interface BakgrunnurAppEntryController : PSListController
-@property (nonatomic,retain) PSTextFieldSpecifier *expirationSpecifier;
-//@property (nonatomic,retain) PSSpecifier *cpuUsageSelectionSpecifier;
-//@property (nonatomic,retain) PSTextFieldSpecifier *cpuUsageSpecifier;
-@property (nonatomic,retain) PSTextFieldSpecifier *timeSpanSpecSpecifier;
-//@property (nonatomic,retain) PSSpecifier *systemCallsSelectionSpecifier;
-//@property (nonatomic,retain) PSTextFieldSpecifier *systemCallsSpecifier;
-@property (nonatomic,assign) BOOL isAdvanced;
-@property (nonatomic,retain) PSSpecifier *cpuControllerSpecifier;
-@property (nonatomic,retain) PSSpecifier *systemCallsControllerSpecifier;
-@property (nonatomic,retain) PSSpecifier *networkControllerSpecifier;
+@interface BakgrunnurAppEntryController : PSListController{
+    NSMutableArray *_staticSpecifiers;
+    NSMutableArray *_expandableSpecifiers;
+    PSTextFieldSpecifier *_expirationSpecifier;
+    PSTextFieldSpecifier *_timeSpanSpecifier;
+    PSSpecifier *_cpuControllerSpecifier;
+    PSSpecifier *_systemCallsControllerSpecifier;
+    PSSpecifier *_networkControllerSpecifier;
+    PSSpecifier *_enabledEntrySpecifier;
+    BOOL _isAdvanced;
+    BOOL _expanded;
+    BOOL _manuallyExpanded;
+}
+-(void)updateParentViewController;
 @end
 
 

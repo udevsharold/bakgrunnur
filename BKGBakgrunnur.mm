@@ -1,5 +1,5 @@
 #import "common.h"
-#import "Shared.h"
+#import "BKGShared.h"
 #import "BKGBakgrunnur.h"
 #import "NSTask.h"
 #include <pthread.h>
@@ -54,9 +54,6 @@
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
-        
-        //self.ipcCenter = [CPDistributedMessagingCenter centerNamed:kIPCCenterName];
-        //rocketbootstrap_distributedmessagingcenter_apply(self.ipcCenter);
     }
     return self;
 }
@@ -284,7 +281,28 @@
 }
 
 /*
--(BOOL)invalidateAssertion:(NSString *)identifier{
+-(void)setTaskState:(RBSTaskState)rbsState forBundle:(NSString *)identifier{
+    rbsState = RBSTaskStateNone;
+    identifier = @"com.newin.nplayer";
+    RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
+    NSDictionary *stateByIdentity = [rbsCnx valueForKey:@"_stateByIdentity"];
+    
+    [stateByIdentity enumerateKeysAndObjectsUsingBlock:^(RBSProcessIdentity *identity, RBSProcessState *state, BOOL *stop) {
+        
+        if ([state.process.identity.embeddedApplicationIdentifier isEqualToString:identifier]){
+            HBLogDebug(@"set state: %lu ** %@", rbsState, state.process.identity.embeddedApplicationIdentifier);
+            [state setLegacyAssertions:nil];
+            [state setTaskState:RBSTaskStateNone];
+            //state.primitiveAssertions = nil;
+            state.taskState = rbsState;
+            //[self invalidateAssertionForBundle:identifier];
+            *stop =YES;
+        }
+    }];
+}
+
+-(BOOL)invalidateAssertionForBundle:(NSString *)identifier{
+    identifier = @"com.newin.nplayer";
     BOOL invalidated = NO;
     SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
     if (sbAppController){
@@ -295,10 +313,13 @@
         RBSAssertion *assertion;
         
         while ((assertion = [enumerator nextObject])) {
+            HBLogDebug(@"assertion: %@", assertion);
             SBApplication *sbApp = [sbAppController applicationWithPid:assertion.target.processIdentifier.pid];
             NSString *bundleIdentifier = sbApp.bundleIdentifier;
+            HBLogDebug(@"bundleIdentifier: %@ ** %@", bundleIdentifier,identifier);
             if ([bundleIdentifier isEqualToString:identifier]){
-                [rbsCnx invalidateAssertionWithIdentifier:assertion.identifier error:nil];
+                HBLogDebug(@"Invalidated: %@", bundleIdentifier);
+                [self _reallyInvalidateAssertion:assertion];
                 invalidated = YES;
             }
         }
@@ -518,7 +539,7 @@
     }
 }
 
--(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime{
+-(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime completion:(void (^)())completionHandler{
     /*
     RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
     RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:1 flags:13];
@@ -555,7 +576,9 @@
     [self.queuedIdentifiers addObject:identifier];
     [self updateLabelAccessory:identifier];
     
-    [self presentBannerWithSubtitleIfPossible:[NSString stringWithFormat:@"%@, %@", removeGracefully?@"Retire":@"Terminate", [self formattedExpiration:expTime]] forBundle:identifier];
+    if (completionHandler){
+        completionHandler();
+    }
     
     //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
     //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
@@ -727,12 +750,13 @@
         for (NSString *identifier in self.advancedMonitoringIdentifiers){
             
             NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:identifier];
-            BOOL cpuUsageEnabled = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageEnabled"] boolValue] : NO;
             
-            int networkTransmissionType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionType"] intValue] : 0;
-            
-            int systemCallsType = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsType"] intValue] : 0;
-            
+            BOOL cpuUsageEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuUsageEnabled", NO, prefs, identifierIdx);
+
+            int networkTransmissionType = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionType", 0, prefs, identifierIdx);
+
+            int systemCallsType = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsType", 0, prefs, identifierIdx);
+
             if (scheduledCall){
                 
                 switch ([[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count]) {
@@ -812,18 +836,14 @@
             
             if (self.advancedMonitoringHistory[identifier] && [[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count] > 1){
                 
-                
-                float cpuUsageThreshold = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageThreshold"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"cpuUsageThreshold"] floatValue] : 0.5f;
+                float cpuUsageThreshold = floatValueForConfigKeyWithPrefsAndIndex(@"cpuUsageThreshold", 0.5f, prefs, identifierIdx);
                 cpuUsageThreshold = cpuUsageThreshold <= 0.0f ? 0.0f : cpuUsageThreshold;
                 cpuUsageThreshold = !cpuUsageThreshold ? 0.0f : cpuUsageThreshold;
                 
                 //HBLogDebug(@"cpuUsageThreshold: %f", cpuUsageThreshold);
-                
-                double rxbytesThreshold = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"rxbytesThreshold"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"rxbytesThreshold"] unsignedLongLongValue] : 0;
-                
-                double txbytesThreshold = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"txbytesThreshold"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"txbytesThreshold"] unsignedLongLongValue] : 0;
-                
-                int networkUnit = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionUnit"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"networkTransmissionUnit"] unsignedLongLongValue] : 2;
+                double rxbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"rxbytesThreshold", 0.0, prefs, identifierIdx);
+                double txbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"txbytesThreshold", 0.0, prefs, identifierIdx);
+                int networkUnit = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionUnit", 2, prefs, identifierIdx);
                 
                 double networkThresholdUnitDenomination = (double)pow((double)1024,(double)2);
                 switch (networkUnit) {
@@ -843,7 +863,7 @@
                         break;
                 }
                 
-                int systemCallsThreshold = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsThreshold"]) ? [prefs[@"enabledIdentifier"][identifierIdx][@"systemCallsThreshold"] intValue] : 0;
+                int systemCallsThreshold = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsThreshold", 0, prefs, identifierIdx);
                 systemCallsThreshold = systemCallsThreshold <= 0 ? 0 : systemCallsThreshold;
                 
                 //int criteriaToBeFullfilledCount = 0;
@@ -1057,43 +1077,8 @@
     return stackedShortcuts;
 }
 
--(NSDictionary *)fetchPrefs{
-    prefs = nil;
-    NSData *data = [NSData dataWithContentsOfFile:PREFS_PATH];
-    if (data){
-        prefs = [NSPropertyListSerialization propertyListWithData:data options:0 format:nil error:nil];
-    }else{
-        prefs = @{};
-    }
-    return prefs;
-}
-
 -(void)setObject:(NSDictionary *)objectDict bundleIdentifier:(NSString *)bundleIdentifier{
-    NSMutableDictionary *prefs = [[self fetchPrefs] mutableCopy];
-    NSMutableDictionary *identifierDict = [objectDict mutableCopy];
-    
-    identifierDict[@"identifier"] = bundleIdentifier;
-    
-    if (prefs && [prefs[@"enabledIdentifier"] firstObject] != nil){
-        NSMutableArray *originalIdentifiers = [prefs[@"enabledIdentifier"] mutableCopy];
-        NSArray *array = [prefs[@"enabledIdentifier"] valueForKey:@"identifier"];
-        NSUInteger idx = [array indexOfObject:bundleIdentifier];
-        if (idx != NSNotFound){
-            NSMutableDictionary *mergedDict = originalIdentifiers[idx];
-            [mergedDict addEntriesFromDictionary:identifierDict];
-            [originalIdentifiers replaceObjectAtIndex:idx
-                                           withObject:mergedDict];
-        }else{
-            [originalIdentifiers addObject:identifierDict];
-        }
-        NSOrderedSet *uniqueIdentifierSet = [NSOrderedSet orderedSetWithArray:originalIdentifiers];
-        NSArray *newIdentifiers = [uniqueIdentifierSet array];
-        prefs[@"enabledIdentifier"] = newIdentifiers;
-    }else{
-        prefs[@"enabledIdentifier"] = @[identifierDict];
-    }
-    [prefs writeToFile:PREFS_PATH atomically:NO];
-    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)PREFS_CHANGED_NOTIFICATION_NAME, NULL, NULL, YES);
+    setConfigObject(bundleIdentifier, objectDict);
 }
 
 -(NSDictionary *)taskEventsDeltaForBundleIdentifier:(NSString *)bundleIdentifier history:(NSDictionary *)history{

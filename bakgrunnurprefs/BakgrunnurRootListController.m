@@ -1,6 +1,5 @@
 #import "../common.h"
 #include "BakgrunnurRootListController.h"
-#include "BakgrunnurAppListController.h"
 #import "../SpringBoard.h"
 #import "../NSTask.h"
 
@@ -45,9 +44,18 @@ void refreshEnabledSwitch() {
         [rootSpecifiers addObject:blankSpecGroup];
         
         //Manage Apps
-        PSSpecifier *manageAppsSpec = [PSSpecifier preferenceSpecifierNamed:@"Manage Apps" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurAppListController") cell:PSLinkCell edit:nil];
-        [rootSpecifiers addObject:manageAppsSpec];
-        
+        PSSpecifier *altListSpec = [PSSpecifier preferenceSpecifierNamed:@"Manage Apps" target:nil set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"BakgrunnurApplicationListSubcontrollerController") cell:PSLinkListCell edit:nil];
+        [altListSpec setProperty:@"BakgrunnurAppEntryController" forKey:@"subcontrollerClass"];
+        [altListSpec setProperty:@"Manage Apps" forKey:@"label"];
+        [altListSpec setProperty:@[
+            @{@"sectionType":@"Visible"},
+        ] forKey:@"sections"];
+        [altListSpec setProperty:@YES forKey:@"useSearchBar"];
+        [altListSpec setProperty:@YES forKey:@"hideSearchBarWhileScrolling"];
+        [altListSpec setProperty:@YES forKey:@"alphabeticIndexingEnabled"];
+        [altListSpec setProperty:@YES forKey:@"showIdentifiersAsSubtitle"];
+        [altListSpec setProperty:@YES forKey:@"includeIdentifiersInSearch"];
+        [rootSpecifiers addObject:altListSpec];
         
         //accessory type
         PSSpecifier *homescreenGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Homescreen" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];

@@ -1,6 +1,6 @@
 export ARCHS = arm64 arm64e
-export DEBUG = 0
-export FINALPACKAGE = 1
+export DEBUG = 1
+export FINALPACKAGE = 0
 
 export PREFIX = $(THEOS)/toolchain/Xcode11.xctoolchain/usr/bin/
 
@@ -14,6 +14,7 @@ TWEAK_NAME = Bakgrunnur
 
 Bakgrunnur_FILES = $(wildcard *.xm) $(wildcard *.mm)
 Bakgrunnur_CFLAGS = -fobjc-arc
+Bakgrunnur_FRAMEWORKS = UIKit QuartzCore
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += bkg

@@ -4,10 +4,11 @@ include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = BakgrunnurPrefs
 
-BakgrunnurPrefs_FILES = $(wildcard *.m)
+BakgrunnurPrefs_FILES = $(wildcard *.m) ../BKGShared.mm
 BakgrunnurPrefs_INSTALL_PATH = /Library/PreferenceBundles
 BakgrunnurPrefs_FRAMEWORKS = UIKit
 BakgrunnurPrefs_PRIVATE_FRAMEWORKS = Preferences
+BakgrunnurPrefs_EXTRA_FRAMEWORKS = AltList
 BakgrunnurPrefs_CFLAGS = -fobjc-arc
 BakgrunnurPrefs_LIBRARIES = applist
 
