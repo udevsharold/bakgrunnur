@@ -1,4 +1,5 @@
 #import "../common.h"
+#import "../BKGShared.h"
 #include "BakgrunnurRootListController.h"
 #import "../SpringBoard.h"
 #import "../NSTask.h"
@@ -47,8 +48,9 @@ void refreshEnabledSwitch() {
         PSSpecifier *altListSpec = [PSSpecifier preferenceSpecifierNamed:@"Manage Apps" target:nil set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"BakgrunnurApplicationListSubcontrollerController") cell:PSLinkListCell edit:nil];
         [altListSpec setProperty:@"BakgrunnurAppEntryController" forKey:@"subcontrollerClass"];
         [altListSpec setProperty:@"Manage Apps" forKey:@"label"];
+        NSString *sectionType = boolValueForKey(@"showHiddenApps", NO) ? @"All" : @"Visible";
         [altListSpec setProperty:@[
-            @{@"sectionType":@"Visible"},
+            @{@"sectionType":sectionType},
         ] forKey:@"sections"];
         [altListSpec setProperty:@YES forKey:@"useSearchBar"];
         [altListSpec setProperty:@YES forKey:@"hideSearchBarWhileScrolling"];
@@ -115,6 +117,13 @@ void refreshEnabledSwitch() {
             [rootSpecifiers addObject:presentBannerSpec];
         }
         
+        //Advanced
+        PSSpecifier *advancedGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        [rootSpecifiers addObject:advancedGroupSpec];
+        
+        PSSpecifier *advancedSpec = [PSSpecifier preferenceSpecifierNamed:@"Advanced" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnutAdvancedController") cell:PSLinkCell edit:nil];
+        [rootSpecifiers addObject:advancedSpec];
+        
         //reset
         PSSpecifier *resetGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [resetGroupSpec setProperty:@"Reset everything to default." forKey:@"footerText"];
@@ -171,19 +180,14 @@ void refreshEnabledSwitch() {
     return _specifiers;
 }
 
-- (id)readPreferenceValue:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", specifier.properties[@"defaults"]];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    return (settings[specifier.properties[@"key"]]) ?: specifier.properties[@"default"];
+-(id)readPreferenceValue:(PSSpecifier*)specifier{
+    NSString *key = [specifier propertyForKey:@"key"];
+    id value = valueForKey(key, specifier.properties[@"default"]);
+    return value;
 }
 
-- (void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", specifier.properties[@"defaults"]];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    [settings setObject:value forKey:specifier.properties[@"key"]];
-    [settings writeToFile:path atomically:YES];
+-(void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier{
+    setValueForKey([specifier propertyForKey:@"key"], value);
     CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
     if (notificationName) {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
