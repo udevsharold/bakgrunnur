@@ -106,7 +106,9 @@ void refreshEnabledSwitch() {
         
         //banner
         if (@available(iOS 14.0, *)){
-            [rootSpecifiers addObject:blankSpecGroup];
+            PSSpecifier *presentBannerGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+            [presentBannerGroupSpec setProperty:@"Show banner when apps being handled by Bakgrunnur." forKey:@"footerText"];
+            [rootSpecifiers addObject:presentBannerGroupSpec];
 
             PSSpecifier *presentBannerSpec = [PSSpecifier preferenceSpecifierNamed:@"Banners" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
             [presentBannerSpec setProperty:@"Banners" forKey:@"label"];
@@ -117,8 +119,11 @@ void refreshEnabledSwitch() {
             [rootSpecifiers addObject:presentBannerSpec];
         }
         
+        //blank
+        [rootSpecifiers addObject:blankSpecGroup];
+
         //Advanced
-        PSSpecifier *advancedGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        PSSpecifier *advancedGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Others" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [rootSpecifiers addObject:advancedGroupSpec];
         
         PSSpecifier *advancedSpec = [PSSpecifier preferenceSpecifierNamed:@"Advanced" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnutAdvancedController") cell:PSLinkCell edit:nil];

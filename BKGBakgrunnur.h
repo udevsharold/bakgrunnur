@@ -6,6 +6,7 @@
 
 @interface BKGBakgrunnur : NSObject{
     NSMutableDictionary <NSString *, RBSAssertion *>*_assertions;
+    NSMutableDictionary <NSString *, RBSAssertionIdentifier *>*_assertionIdentifiers;
 }
 @property(nonatomic, strong) NSMutableArray *retiringIdentifiers;
 @property(nonatomic, strong) NSMutableArray *queuedIdentifiers;

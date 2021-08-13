@@ -50,6 +50,7 @@
         self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
         self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
         _assertions = [NSMutableDictionary dictionary];
+        _assertionIdentifiers = [NSMutableDictionary dictionary];
 
         //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
         //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
@@ -211,14 +212,13 @@
     
     FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
     NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
-    
+
     [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
         if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
             
             if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
                 [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
             }
-            
             
             UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
             [newSettings setForeground:NO];
@@ -472,14 +472,16 @@
     return rbsProcessID;
 }
 
--(void)_reallyInvalidateAssertion:(RBSAssertion *)assertion{
+-(void)_reallyInvalidateAssertion:(RBSAssertion *)assertion identifier:(RBSAssertionIdentifier *)identifier{
     [assertion invalidate];
-    [[objc_getClass("RBSConnection") sharedInstance] invalidateAssertion:assertion error:nil];
+    [[objc_getClass("RBSConnection") sharedInstance] invalidateAssertionWithIdentifier:identifier error:nil];
+    
 }
 
 -(void)_invalidateAndFlushAssertion:(RBSAssertion *)assertion rbsIdentifier:(NSString *)identifier{
-    [self _reallyInvalidateAssertion:assertion];
+    [self _reallyInvalidateAssertion:assertion identifier:_assertionIdentifiers[identifier]];
     [_assertions removeObjectForKey:identifier];
+    [_assertionIdentifiers removeObjectForKey:identifier];
     HBLogDebug(@"Invalidated and flushed assertion for %@", identifier);
 }
 
@@ -518,7 +520,6 @@
 
 
 -(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive{
-    
     NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
     
     if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggressive) || (_assertions[scene.identifier].attributes.count > 1 && !aggressive)))){
@@ -531,7 +532,7 @@
         
         _assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
         
-        [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
+        _assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
         
         [self subscribeToBundleDeath:identifier];
         

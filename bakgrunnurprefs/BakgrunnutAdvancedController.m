@@ -10,10 +10,10 @@
         
         //Show hidden applications
         PSSpecifier *showHiddenAppsGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-        [showHiddenAppsGroupSpec setProperty:@"Show hidden apps in Manage Apps." forKey:@"footerText"];
+        [showHiddenAppsGroupSpec setProperty:@"Show hidden apps in Manage Apps. Requires reload of Settings." forKey:@"footerText"];
         [rootSpecifiers addObject:showHiddenAppsGroupSpec];
         
-        PSSpecifier *showHiddenAppsSpec = [PSSpecifier preferenceSpecifierNamed:@"Show Hidden Apps. Requires reload of Settings." target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        PSSpecifier *showHiddenAppsSpec = [PSSpecifier preferenceSpecifierNamed:@"Show Hidden Apps" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
         [showHiddenAppsSpec setProperty:@"Show Hidden Apps" forKey:@"label"];
         [showHiddenAppsSpec setProperty:@"showHiddenApps" forKey:@"key"];
         [showHiddenAppsSpec setProperty:@NO forKey:@"default"];
