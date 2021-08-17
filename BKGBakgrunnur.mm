@@ -379,7 +379,7 @@
     NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
     NSArray *timerInQueues = [queues allKeys];
     //HBLogDebug(@"allkeys: %@", timerInQueues);
-    for (NSString *identifier in self.immortalIdentifiers){
+    for (NSString *identifier in self.immortalIdentifiers.copy){
         [self _retireScene:identifier];
         [self.immortalIdentifiers removeObject:identifier];
         [self.advancedMonitoringIdentifiers removeObject:identifier];
