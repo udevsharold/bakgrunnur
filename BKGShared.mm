@@ -190,6 +190,21 @@ void setConfigObject(NSString *identifier, NSDictionary *configObject){
     setValueForKey(@"enabledIdentifier", configs);
 }
 
+void removeConfig(NSString *identifier){
+	NSMutableArray *configs;
+	configs = [valueForKey(@"enabledIdentifier", nil) mutableCopy];
+	
+	if (configs){
+		NSPredicate *predicate = [NSPredicate predicateWithFormat:@"%K == %@", @"identifier", identifier];
+		NSMutableDictionary *config = [[configs filteredArrayUsingPredicate:predicate].firstObject mutableCopy];
+		if (config){
+			NSUInteger idx = [configs indexOfObject:config];
+			[configs removeObjectAtIndex:idx];
+		}
+	}
+	setValueForKey(@"enabledIdentifier", configs);
+}
+
 id valueForConfigKeyWithPrefsAndIndex(NSString *key, id defaultValue, NSDictionary *prefs, NSUInteger index){
     if (!prefs){
         prefs = getPrefs();

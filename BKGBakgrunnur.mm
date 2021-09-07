@@ -450,6 +450,8 @@
     //RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
     RBSHereditaryGrant *endpointInjectionGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.boardservices.endpoint-injection" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
     RBSHereditaryGrant *visibilityGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.frontboard.visibility" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
+    //RBSCPUAccessGrant *cpuAccessGrant = [objc_getClass("RBSCPUAccessGrant") grantWithUserInteractivityAndFocus];
+    //RBSGPUAccessGrant *gpuAccessGrant = [objc_getClass("RBSGPUAccessGrant") grant];
     return [[objc_getClass("RBSAssertion") alloc] initWithExplanation:[NSString stringWithFormat:@"Bakgrunnur injects Compound V into %@", target.environment] target:target attributes:@[legacyAttr, endpointInjectionGrant, visibilityGrant]];
 }
 

@@ -1196,6 +1196,18 @@ typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
 +(id)limitationForRole:(unsigned char)arg1 withPercentage:(unsigned long long)arg2 duration:(double)arg3 violationPolicy:(unsigned long long)arg4 ;
 @end
 
+@interface RBSCPUAccessGrant : RBSGrant
++(id)grantWithRole:(unsigned char)arg1 ;
++(id)grantWithUserInteractivityAndFocus;
++(id)grant;
++(id)grantUserInitiated;
++(id)grantWithUserInteractivity;
+@end
+
+@interface RBSGPUAccessGrant : RBSGrant
++(id)grant;
+@end
+
 @interface RBSAssertion : NSObject
 @property (nonatomic,readonly) RBSTarget * target;
 @property (nonatomic,copy,readonly) RBSAssertionIdentifier * identifier;

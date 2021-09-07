@@ -38,6 +38,7 @@ id valueForConfigKeyWithPrefs(NSString *identifier, NSString *key, id defaultVal
 void setValueForConfigKey(NSString *identifier, NSString *key, id value);
 void setValueForConfigKeyWithPrefs(NSString *identifier, NSString *key, id value, NSDictionary *prefs);
 void setConfigObject(NSString *identifier, NSDictionary *configObject);
+void removeConfig(NSString *identifier);
 id valueForConfigKeyWithPrefsAndIndex(NSString *key, id defaultValue, NSDictionary *prefs, NSUInteger index);
 BOOL boolValueForConfigKeyWithPrefs(NSString *identifier, NSString *key, BOOL defaultValue, NSDictionary *prefs);
 BOOL boolValueForConfigKeyWithPrefsAndIndex(NSString *key, BOOL defaultValue, NSDictionary *prefs, NSUInteger index);
@@ -57,6 +58,7 @@ double doubleValueForConfigKey(NSString *identifier, NSString *key, double defau
 float floatValueForConfigKeyWithPrefs(NSString *identifier, NSString *key, float defaultValue, NSDictionary *prefs);
 float floatValueForConfigKeyWithPrefsAndIndex(NSString *key, float defaultValue, NSDictionary *prefs, NSUInteger index);
 float floatValueForConfigKey(NSString *identifier, NSString *key, float defaultValue);
+
 #ifdef __cplusplus
 }
 #endif

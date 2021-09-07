@@ -770,7 +770,7 @@ static void cliRequest(){
                 [bakgrunnur _retireScene:pending[@"identifier"]];
             }
         }
-        if (boolValueForKeyWithPrefs(@"remove", NO, pending)){
+        if (!boolValueForKeyWithPrefs(@"retire", NO, pending)){
             if (pending[@"expiration"]){
                 [bakgrunnur.grantedOnceIdentifiers removeObject:pending[@"identifier"]];
                 [bakgrunnur invalidateQueue:pending[@"identifier"]];
