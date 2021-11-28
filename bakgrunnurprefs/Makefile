@@ -10,7 +10,6 @@ BakgrunnurPrefs_FRAMEWORKS = UIKit
 BakgrunnurPrefs_PRIVATE_FRAMEWORKS = Preferences
 BakgrunnurPrefs_EXTRA_FRAMEWORKS = AltList
 BakgrunnurPrefs_CFLAGS = -fobjc-arc
-BakgrunnurPrefs_LIBRARIES = applist
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 

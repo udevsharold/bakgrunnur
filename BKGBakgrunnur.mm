@@ -488,27 +488,32 @@
 }
 
 -(void)cleanAssertionsForBundle:(NSString *)identifier{
-    for (NSString *key in [_assertions allKeys]){
-        if ([key containsString:identifier]){
-            [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
-        }
-    }
+	if (identifier){
+		for (NSString *key in [_assertions allKeys]){
+			if ([key containsString:identifier]){
+				[self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
+			}
+		}
+	}
 }
 
 -(void)cleanAssertionsForBundles:(NSArray <NSString *>*)identifiers{
-    for (NSString *identifier in identifiers){
-        [self cleanAssertionsForBundle:identifier];
-    }
+	for (NSString *identifier in identifiers){
+		[self cleanAssertionsForBundle:identifier];
+	}
 }
 
 -(void)cleanAssertionsForPid:(int)pid{
-    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
-    SBApplication *sbApp = [sbAppController applicationWithPid:pid];
-    for (NSString *key in [_assertions allKeys]){
-        if ([key containsString:sbApp.bundleIdentifier]){
-            [self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
-        }
-    }
+	if (pid > 0){
+		SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+		SBApplication *sbApp = [sbAppController applicationWithPid:pid];
+		if (!sbApp || !sbApp.bundleIdentifier) return;
+		for (NSString *key in [_assertions allKeys]){
+			if ([key containsString:sbApp.bundleIdentifier]){
+				[self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
+			}
+		}
+	}
 }
 
 -(void)subscribeToBundleDeath:(NSString *)identifier{

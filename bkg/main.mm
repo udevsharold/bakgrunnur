@@ -25,7 +25,7 @@ void display_usage(){
             "       -i, --identifier [APP_IDENTIFIER]: app identifier\n"
             "       -a, --add: add into backgrounding list\n"
             "                  new parameters will be merged while keeping old parameters\n"
-			"                  specify with -denpgrRTIACKkNus to change exiting value\n"
+			"                  specify with -denpgrRTIACKkNus to change existing value\n"
             "                  use -f to force as new entry\n"
             "       -d, --disable: disable from backgrounding list\n"
             "       -f, --force: force adding new entry by overrding old entry of the\n"
@@ -358,7 +358,7 @@ int main(int argc, char *argv[], char *envp[]) {
 		mandatoryArgsCount += 1;
 	}
 	
-    if (mandatoryArgsCount < expectedmandatoryArgsCount || argc < 1){
+    if (mandatoryArgsCount < expectedmandatoryArgsCount){
         NSLogN(@"Not enough input arguments, -i needs to be specified");
         display_usage();
     }
