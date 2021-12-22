@@ -1,18 +1,17 @@
 #import <ControlCenterUIKit/CCUIToggleModule.h>
 #import <ControlCenterUI/CCUIModuleInstance.h>
 #import <ControlCenterUI/CCUIModuleInstanceManager.h>
-#import "BakgrunnurModuleContentViewController.h"
+#import "BKGCCModuleContentViewController.h"
 
 @interface CCUIModuleInstanceManager (CCSupport)
 - (CCUIModuleInstance*)instanceForModuleIdentifier:(NSString*)moduleIdentifier;
 @end
 
-@interface BakgrunnurCC : CCUIToggleModule
-{
+@interface BKGCCToggleModule : CCUIToggleModule{
     BOOL _selected;
-    BakgrunnurModuleContentViewController* _contentViewController;
+	BOOL _shouldSetValue;
+	BKGCCModuleContentViewController* _contentViewController;
 }
 -(void)updateState;
 -(void)updateStateViaPreferences;
--(NSMutableDictionary *)getPrefs;
 @end

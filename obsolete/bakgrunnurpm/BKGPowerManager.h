@@ -2,7 +2,7 @@
 #import <IOKit/ps/IOPSKeys.h>
 #import <IOKit/pwr_mgt/IOPM.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
-#include <xpc/xpc.h>
+#import <xpc/xpc.h>
 
 @interface BKGPowerManager : NSObject
 +(id)sharedInstance;

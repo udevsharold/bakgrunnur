@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <getopt.h>
+#import <stdio.h>
+#import <getopt.h>
 #import "../common.h"
 #import "../NSTask.h"
 

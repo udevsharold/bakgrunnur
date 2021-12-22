@@ -1,6 +1,6 @@
-#include <Foundation/Foundation.h>
-#include <UIKit/UIKit.h>
-#include <HBLog.h>
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <HBLog.h>
 
 #define BAKGRUNNUR_IDENTIFIER @"com.udevs.bakgrunnur"
 #define PREFS_CHANGED_NOTIFICATION_NAME @"com.udevs.bakgrunnur.prefschanged"

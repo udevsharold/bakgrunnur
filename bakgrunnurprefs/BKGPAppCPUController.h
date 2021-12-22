@@ -1,7 +1,6 @@
-#import <Preferences/PSListController.h>
-#import <Preferences/PSSpecifier.h>
+#import "CommonHeaders.h"
 
-@interface BakgrunnurAppCPUController : PSListController
+@interface BKGPAppCPUController : PSListController
 @property (nonatomic,retain) PSSpecifier *cpuUsageSelectionSpecifier;
 @property (nonatomic,retain) PSTextFieldSpecifier *cpuUsageSpecifier;
 @property (nonatomic,retain) NSString *identifier;

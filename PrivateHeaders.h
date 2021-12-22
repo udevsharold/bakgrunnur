@@ -1,5 +1,5 @@
-#include <Foundation/Foundation.h>
-#include <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 @interface RBSProcessIdentity : NSObject
 @property (nonatomic,copy,readonly) NSString * embeddedApplicationIdentifier;
@@ -1147,6 +1147,66 @@ typedef NS_ENUM(NSUInteger, ProcessAssertionFlags) {
 @interface RBSAttribute : NSObject
 @end
 
+enum {
+	BKSProcessAssertionNone = 0,
+	BKSProcessAssertionPreventTaskSuspend  = 1 << 0,             // prevents a process from being task suspended. If currently suspended, wakes it up.
+	BKSProcessAssertionPreventTaskThrottleDown = 1 << 1,         // prevents a process from being deprioritized. If already throttled down, throttles it up.
+	BKSProcessAssertionAllowIdleSleep = 1 << 2,                  // indicates if the process assertion should allow idle sleep or not
+	BKSProcessAssertionWantsForegroundResourcePriority = 1 << 3, // suggests the jetsam priority be kept at the foreground level and prevents throttling of UI
+	BKSProcessAssertionAllowSuspendOnSleep = 1 << 4,             // indicates if the process should be suspended on sleep until the device is again in use
+	BKSProcessAssertionPreventThrottleDownUI = 1 << 5            // allows the process full graphics capabilities
+};
+typedef uint32_t BKSProcessAssertionFlags;
+
+// BKSProcessAssertionReason
+enum {
+	BKSProcessAssertionReasonNone,
+	BKSProcessAssertionReasonMediaPlayback,
+	BKSProcessAssertionReasonLocation,
+	BKSProcessAssertionReasonExternalAccessory,
+	BKSProcessAssertionReasonFinishTask,
+	BKSProcessAssertionReasonBluetooth,
+	BKSProcessAssertionReasonNetworkAuthentication,
+	BKSProcessAssertionReasonBackgroundUI,          // deprecated. Use BKSProcessAssertionReasonViewService instead.
+	BKSProcessAssertionReasonInterAppAudioStreaming,
+	BKSProcessAssertionReasonViewService,
+	BKSProcessAssertionReasonNewsstandDownload,
+	BKSProcessAssertionReasonBackgroundDownload,
+	BKSProcessAssertionReasonVoIP,
+	BKSProcessAssertionReasonExtension,
+	BKSProcessAssertionReasonContinuityStreams,
+	BKSProcessAssertionReasonHealthKit,
+	BKSProcessAssertionReasonWatchConnectivity,
+	BKSProcessAssertionReasonSnapshot,
+	BKSProcessAssertionReasonComplicationUpdate,
+	BKSProcessAssertionReasonWorkoutProcessing,
+	BKSProcessAssertionReasonComplicationPushUpdate,
+	BKSProcessAssertionReasonBackgroundLocationProcessing,
+	BKSProcessAssertionReasonBackgroundComputation,
+	BKSProcessAssertionReasonAudioRecording,
+	BKSProcessAssertionReasonFinishTaskReduced,
+
+	// The following reasons can only be taken by SpringBoard
+	BKSProcessAssertionReasonResume = 10000,
+	BKSProcessAssertionReasonSuspend,
+	BKSProcessAssertionReasonTransientWakeup, // systemApp only
+	BKSProcessAssertionReasonPeriodicTask,
+	BKSProcessAssertionReasonFinishTaskUnbounded, // internal and systemApp only
+	BKSProcessAssertionReasonContinuous,
+	BKSProcessAssertionReasonBackgroundContentFetching,
+	BKSProcessAssertionReasonNotificationAction,
+	BKSProcessAssertionReasonPIP,
+
+	// The following reasons are internal only and should not be used by any clients
+	BKSProcessAssertionReasonFinishTaskAfterBackgroundContentFetching = 50000,
+	BKSProcessAssertionReasonFinishTaskAfterBackgroundDownload,
+	BKSProcessAssertionReasonFinishTaskAfterPeriodicTask,
+	BKSProcessAssertionReasonFinishTaskAfterNotificationAction,
+	BKSProcessAssertionReasonFinishTaskAfterWatchConnectivity,
+};
+typedef uint32_t BKSProcessAssertionReason;
+
+/*
 typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
     RBSLegacyFlagAllowIdleSleep = 4,
     RBSLegacyFlagAllowSuspendOnSleep = 16,
@@ -1155,9 +1215,10 @@ typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
     RBSLegacyFlagPreventThrottleDownUI = 32,
     RBSLegacyFlagWantsForegroundResourcePriority = 8
 };
+*/
 
 @interface RBSLegacyAttribute : RBSAttribute
-+(id)attributeWithReason:(unsigned long long)arg1 flags:(unsigned long long)arg2 ;
++(id)attributeWithReason:(BKSProcessAssertionReason)arg1 flags:(BKSProcessAssertionFlags)arg2 ;
 @end
 
 @interface RBSGrant : RBSAttribute
@@ -1191,6 +1252,22 @@ typedef NS_ENUM(NSUInteger, RBSLegacyFlags) {
 
 @interface RBSLimitation : RBSAttribute
 @end
+
+typedef NS_ENUM(NSUInteger, RBSRole){
+	RBSRoleUnknown,
+	RBSRoleBackground,
+	RBSRoleLaunchTAL,
+	RBSRoleNonUserInteractive,
+	RBSRoleUserInteractiveNonFocal,
+	RBSRoleUserInteractive,
+	RBSRoleUserInteractiveFocal
+};
+
+typedef NS_ENUM(NSUInteger, RBSCPUViolationPolicy){
+	RBSCPUViolationPolicyInvalidateAndTerminateProcess,
+	RBSCPUViolationPolicyInvalidate,
+	RBSCPUViolationPolicyLog
+};
 
 @interface RBSCPUMaximumUsageLimitation : RBSLimitation
 +(id)limitationForRole:(unsigned char)arg1 withPercentage:(unsigned long long)arg2 duration:(double)arg3 violationPolicy:(unsigned long long)arg4 ;

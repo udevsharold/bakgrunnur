@@ -1,5 +1,5 @@
 #import "../common.h"
-#include "BakgrunnurAppListController.h"
+#import "BakgrunnurAppListController.h"
 #import <AppList/AppList.h>
 
 static NSMutableDictionary *prefs;

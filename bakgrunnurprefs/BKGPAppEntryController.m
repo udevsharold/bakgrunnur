@@ -1,9 +1,9 @@
 #import "../common.h"
 #import "../BKGShared.h"
-#import "BakgrunnurAppEntryController.h"
-#import "BakgrunnurApplicationListSubcontrollerController.h"
+#import "BKGPAppEntryController.h"
+#import "BKGPApplicationListSubcontrollerController.h"
 
-@implementation BakgrunnurAppEntryController
+@implementation BKGPAppEntryController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];
@@ -145,17 +145,17 @@ static void refreshSpecifiers() {
         [_expandableSpecifiers addObject:blankSpecGroup];
         
         //CPU Controller
-        _cpuControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"CPU" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurAppCPUController") cell:PSLinkCell edit:nil];
+        _cpuControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"CPU" target:nil set:nil get:nil detail:NSClassFromString(@"BKGPAppCPUController") cell:PSLinkCell edit:nil];
         [_cpuControllerSpecifier setProperty:[NSString stringWithFormat:@"%@-bakgrunnur-app-cpu-[%@]", self.specifier.identifier, self.title] forKey:@"id"];
         [_expandableSpecifiers addObject:_cpuControllerSpecifier];
         
         //System Calls Controller
-        _systemCallsControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"System Calls" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurAppSystemCallsController") cell:PSLinkCell edit:nil];
+        _systemCallsControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"System Calls" target:nil set:nil get:nil detail:NSClassFromString(@"BKGPAppSystemCallsController") cell:PSLinkCell edit:nil];
         [_systemCallsControllerSpecifier setProperty:[NSString stringWithFormat:@"%@-bakgrunnur-app-systemcalls-[%@]", self.specifier.identifier, self.title] forKey:@"id"];
         [_expandableSpecifiers addObject:_systemCallsControllerSpecifier];
         
         //Network Controller
-        _networkControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Network" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurAppNetworkController") cell:PSLinkCell edit:nil];
+        _networkControllerSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Network" target:nil set:nil get:nil detail:NSClassFromString(@"BKGPAppNetworkController") cell:PSLinkCell edit:nil];
         [_networkControllerSpecifier setProperty:[NSString stringWithFormat:@"%@-bakgrunnur-app-network-[%@]", self.specifier.identifier, self.title] forKey:@"id"];
         [_expandableSpecifiers addObject:_networkControllerSpecifier];
         
@@ -191,8 +191,8 @@ static void refreshSpecifiers() {
 -(void)updateParentViewController{
     UIViewController *parentController = (UIViewController *)[self valueForKey:@"_parentController"];
     if ([parentController respondsToSelector:@selector(specifierForApplicationWithIdentifier:)]){
-        [(BakgrunnurApplicationListSubcontrollerController *)parentController updateIvars];
-        [(BakgrunnurApplicationListSubcontrollerController *)parentController reloadSpecifier:[(BakgrunnurApplicationListSubcontrollerController *)parentController specifierForApplicationWithIdentifier:self.specifier.identifier] animated:YES];
+        [(BKGPApplicationListSubcontrollerController *)parentController updateIvars];
+        [(BKGPApplicationListSubcontrollerController *)parentController reloadSpecifier:[(BKGPApplicationListSubcontrollerController *)parentController specifierForApplicationWithIdentifier:self.specifier.identifier] animated:YES];
     }
 }
 

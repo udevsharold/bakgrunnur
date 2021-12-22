@@ -1,8 +1,10 @@
-#include "../common.h"
-#import "BakgrunnurModuleRootListController.h"
+#import "../common.h"
+#import "BKGCCModuleRootListController.h"
+#import "../BKGShared.h"
 
-@implementation BakgrunnurModuleRootListController
-- (NSArray *)specifiers{
+@implementation BKGCCModuleRootListController
+
+-(NSArray *)specifiers{
     if (!_specifiers) {
         NSMutableArray *rootSpecifiers = [[NSMutableArray alloc] init];
         PSSpecifier *longPressingGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Long Press/Force Touch" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
@@ -39,27 +41,20 @@
     return _specifiers;
 }
 
-- (id)readPreferenceValue:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", specifier.properties[@"defaults"]];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    return (settings[specifier.properties[@"key"]]) ?: specifier.properties[@"default"];
+-(id)readPreferenceValue:(PSSpecifier *)specifier{
+	NSString *key = [specifier propertyForKey:@"key"];
+	id value = valueForKey(key, specifier.properties[@"default"]);
+	return value;
 }
 
-- (void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier {
-    NSString *path = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", specifier.properties[@"defaults"]];
-    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
-    [settings addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
-    [settings setObject:value forKey:specifier.properties[@"key"]];
-    [settings writeToFile:path atomically:YES];
-    CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
-    if (notificationName) {
-        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
-    }
-     NSString *key = [specifier propertyForKey:@"key"];
-       if ([key isEqualToString:@"sortPriority"]){
-           [self reloadSpecifiers];
-       }
+-(void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier{
+	setValueForKey([specifier propertyForKey:@"key"], value);
+	/*
+	CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
+	if (notificationName){
+		CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
+	}
+	*/
 }
 
 @end

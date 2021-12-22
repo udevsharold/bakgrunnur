@@ -1,6 +1,6 @@
-#include <xpc/xpc.h>
-#include <os/lock.h>
-#import "SpringBoard.h"
+#import <xpc/xpc.h>
+#import <os/lock.h>
+#import "PrivateHeaders.h"
 
 @class RBSAssertion, FBScene;
 

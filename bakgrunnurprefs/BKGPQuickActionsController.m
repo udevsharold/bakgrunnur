@@ -1,7 +1,7 @@
-#include "../common.h"
-#include "BakgrunnurQuickActionsController.h"
+#import "../common.h"
+#import "BKGPQuickActionsController.h"
 
-@implementation BakgrunnurQuickActionsController
+@implementation BKGPQuickActionsController
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
     return 1;

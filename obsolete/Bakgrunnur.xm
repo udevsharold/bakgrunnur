@@ -1,9 +1,9 @@
 #import "common.h"
-#import "SpringBoard.h"
+#import "PrivateHeaders.h"
 #import "Bakgrunnur.h"
 #import "NSTask.h"
-#include <pthread.h>
-#include <mach/mach.h>
+#import <pthread.h>
+#import <mach/mach.h>
 #import <dlfcn.h>
 
 #define defaultExpirationTime 10800 // 3hours

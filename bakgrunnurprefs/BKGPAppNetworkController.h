@@ -1,7 +1,6 @@
-#import <Preferences/PSListController.h>
-#import <Preferences/PSSpecifier.h>
+#import "CommonHeaders.h"
 
-@interface BakgrunnurAppNetworkController : PSListController
+@interface BKGPAppNetworkController : PSListController
 @property (nonatomic,retain) PSSpecifier *networkTransmissionSelectionSpecifier;
 @property (nonatomic,retain) PSSpecifier *networkUnitSelectionSpecifier;
 @property (nonatomic,retain) PSTextFieldSpecifier *rxbytesSpecifier;

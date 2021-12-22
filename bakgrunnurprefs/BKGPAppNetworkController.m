@@ -1,11 +1,11 @@
 #import "../common.h"
 #import "../BKGShared.h"
-#import "BakgrunnurAppEntryController.h"
-#import "BakgrunnurAppNetworkController.h"
+#import "BKGPAppEntryController.h"
+#import "BKGPAppNetworkController.h"
 #import "NSString+Regex.h"
-#import "../NSTask.h"
+#import <NSTask.h>
 
-@implementation BakgrunnurAppNetworkController
+@implementation BKGPAppNetworkController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];
@@ -157,11 +157,11 @@ static void refreshSpecifiers() {
 -(void)updateParentViewController{
     UIViewController *parentController = (UIViewController *)[self valueForKey:@"_parentController"];
     if ([parentController respondsToSelector:@selector(updateParentViewController)]){
-        [(BakgrunnurAppEntryController *)parentController updateParentViewController];
+        [(BKGPAppEntryController *)parentController updateParentViewController];
     }
 }
 
-- (void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier {
+-(void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier{
     
     NSString *key = [specifier propertyForKey:@"key"];
     if ([key isEqualToString:@"networkTransmissionType"]){

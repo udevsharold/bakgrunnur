@@ -1,5 +1,5 @@
 #import "common.h"
-#import "SpringBoard.h"
+#import "PrivateHeaders.h"
 #import "BakgrunnurServer.h"
 
 %group RunningBoardProcess

@@ -1,4 +1,4 @@
-#import "SpringBoard.h"
+#import "PrivateHeaders.h"
 
 extern BOOL enabled;
 extern NSDictionary *prefs;

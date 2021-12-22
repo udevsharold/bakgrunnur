@@ -9,7 +9,7 @@
 		<key>cell</key>
 		<string>PSLinkCell</string>
 		<key>detail</key>
-		<string>BakgrunnurRootListController</string>
+		<string>BKGPRootListController</string>
 		<key>icon</key>
 		<string>Bakgrunnur.png</string>
 		<key>isController</key>

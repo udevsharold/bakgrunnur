@@ -26,7 +26,7 @@
 		<integer>2</integer>
 	</array>
 	<key>NSPrincipalClass</key>
-	<string>BakgrunnurCC</string>
+	<string>BKGCCToggleModule</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>iPhoneOS</string>
@@ -51,6 +51,6 @@
 		</dict>
 	</dict>
 	<key>CCSPreferencesRootListController</key>
-	<string>BakgrunnurModuleRootListController</string>
+	<string>BKGCCModuleRootListController</string>
 </dict>
 </plist>

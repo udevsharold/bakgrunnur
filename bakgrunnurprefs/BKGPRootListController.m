@@ -1,10 +1,10 @@
 #import "../common.h"
 #import "../BKGShared.h"
-#include "BakgrunnurRootListController.h"
-#import "../SpringBoard.h"
-#import "../NSTask.h"
+#import "BKGPRootListController.h"
+#import "../PrivateHeaders.h"
+#import <NSTask.h>
 
-@implementation BakgrunnurRootListController
+@implementation BKGPRootListController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];
@@ -45,8 +45,8 @@ static void refreshSpecifiers() {
         [rootSpecifiers addObject:blankSpecGroup];
         
         //Manage Apps
-        PSSpecifier *altListSpec = [PSSpecifier preferenceSpecifierNamed:@"Manage Apps" target:nil set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"BakgrunnurApplicationListSubcontrollerController") cell:PSLinkListCell edit:nil];
-        [altListSpec setProperty:@"BakgrunnurAppEntryController" forKey:@"subcontrollerClass"];
+        PSSpecifier *altListSpec = [PSSpecifier preferenceSpecifierNamed:@"Manage Apps" target:nil set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"BKGPApplicationListSubcontrollerController") cell:PSLinkListCell edit:nil];
+        [altListSpec setProperty:@"BKGPAppEntryController" forKey:@"subcontrollerClass"];
         [altListSpec setProperty:@"Manage Apps" forKey:@"label"];
         NSString *sectionType = boolValueForKey(@"showHiddenApps", NO) ? @"All" : @"Visible";
         [altListSpec setProperty:@[
@@ -101,7 +101,7 @@ static void refreshSpecifiers() {
         [forceTouchShortcutGroupSpec setProperty:@"Show shortcuts for enabling or disabling Bakgrunnur for each individual app via quick actions menu in homescreen." forKey:@"footerText"];
         [rootSpecifiers addObject:forceTouchShortcutGroupSpec];
         
-        PSSpecifier *forceTouchShortcutSpec = [PSSpecifier preferenceSpecifierNamed:@"Quick Actions" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnurQuickActionsController") cell:PSLinkCell edit:nil];
+        PSSpecifier *forceTouchShortcutSpec = [PSSpecifier preferenceSpecifierNamed:@"Quick Actions" target:nil set:nil get:nil detail:NSClassFromString(@"BKGPQuickActionsController") cell:PSLinkCell edit:nil];
         [rootSpecifiers addObject:forceTouchShortcutSpec];
         
         //banner
@@ -126,7 +126,7 @@ static void refreshSpecifiers() {
         PSSpecifier *advancedGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Others" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [rootSpecifiers addObject:advancedGroupSpec];
         
-        PSSpecifier *advancedSpec = [PSSpecifier preferenceSpecifierNamed:@"Advanced" target:nil set:nil get:nil detail:NSClassFromString(@"BakgrunnutAdvancedController") cell:PSLinkCell edit:nil];
+        PSSpecifier *advancedSpec = [PSSpecifier preferenceSpecifierNamed:@"Advanced" target:nil set:nil get:nil detail:NSClassFromString(@"BKGPAdvancedController") cell:PSLinkCell edit:nil];
         [rootSpecifiers addObject:advancedSpec];
         
         //reset
@@ -193,10 +193,12 @@ static void refreshSpecifiers() {
 
 -(void)setPreferenceValue:(id)value specifier:(PSSpecifier*)specifier{
     setValueForKey([specifier propertyForKey:@"key"], value);
+	/*
     CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[@"PostNotification"];
     if (notificationName) {
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), notificationName, NULL, NULL, YES);
     }
+	 */
     if ([specifier.properties[@"key"] isEqualToString:@"enabled"]){
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)REFRESH_MODULE_NOTIFICATION_NAME, NULL, NULL, YES);
         
@@ -293,7 +295,7 @@ static void refreshSpecifiers() {
     return 0;
 }
 
-- (void)respring {
+-(void)respring{
     
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bakgrunnur" message:@"Respring is not necessary, respring anyway?" preferredStyle:UIAlertControllerStyleAlert];
     
@@ -314,15 +316,15 @@ static void refreshSpecifiers() {
     
 }
 
-- (void)donation {
+-(void)donation{
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.paypal.me/udevs"] options:@{} completionHandler:nil];
 }
 
-- (void)twitter {
+-(void)twitter{
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://twitter.com/udevs9"] options:@{} completionHandler:nil];
 }
 
-- (void)reddit {
+-(void)reddit{
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.reddit.com/user/h4roldj"] options:@{} completionHandler:nil];
 }
 @end

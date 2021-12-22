@@ -6,7 +6,7 @@ TARGET = iphone:clang:11.2:11.0
 
 BUNDLE_NAME = Bakgrunnur
 Bakgrunnur_BUNDLE_EXTENSION = bundle
-Bakgrunnur_FILES = $(wildcard *.m)
+Bakgrunnur_FILES = $(wildcard *.m) ../BKGShared.mm
 Bakgrunnur_PRIVATE_FRAMEWORKS = ControlCenterUIKit Preferences
 Bakgrunnur_FRAMEWORKS = UIKit QuartzCore
 Bakgrunnur_INSTALL_PATH = /Library/ControlCenter/Bundles/

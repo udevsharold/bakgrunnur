@@ -2,10 +2,10 @@
 #import "BKGShared.h"
 #import "BKGBakgrunnur.h"
 #import "NSTask.h"
-#include <pthread.h>
-#include <mach/mach.h>
-#include <dlfcn.h>
-#include <objc/runtime.h>
+#import <pthread.h>
+#import <mach/mach.h>
+#import <dlfcn.h>
+#import <objc/runtime.h>
 #import "Vexillarius.h"
 
 //static NSDictionary *prefs;
@@ -17,88 +17,88 @@
 @implementation BKGBakgrunnur
 
 +(void)load{
-    [self sharedInstance];
+	[self sharedInstance];
 }
 
-+ (instancetype)sharedInstance {
-    static dispatch_once_t once = 0;
-    __strong static id sharedInstance = nil;
-    dispatch_once(&once, ^{
-        sharedInstance = [self new];
-    });
-    return sharedInstance;
++(instancetype)sharedInstance{
+	static dispatch_once_t once = 0;
+	__strong static id sharedInstance = nil;
+	dispatch_once(&once, ^{
+		sharedInstance = [self new];
+	});
+	return sharedInstance;
 }
 
-- (instancetype)init{
-    if ((self = [super init])){
-        
-        self.isPreming = NO;
-        
-        [self createXPCConnection];
-        //[self createPowerdXPCConnection];
-        [self notifySleepingState:YES];
-        //0-sleep
-        //1-half-asleep
-        self.sleepingState = 0;
-        
-        self.retiringIdentifiers = [[NSMutableArray alloc] init];
-        self.queuedIdentifiers = [[NSMutableArray alloc] init];
-        self.immortalIdentifiers = [[NSMutableArray alloc] init];
-        self.advancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
-        self.advancedMonitoringHistory = [[NSMutableDictionary alloc] init];
-        self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
-        self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
-        self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
-        _assertions = [NSMutableDictionary dictionary];
-        _assertionIdentifiers = [NSMutableDictionary dictionary];
-
-        //[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
-        //[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
-        //[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
-    }
-    return self;
+-(instancetype)init{
+	if ((self = [super init])){
+		
+		self.isPreming = NO;
+		
+		[self createXPCConnection];
+		//[self createPowerdXPCConnection];
+		[self notifySleepingState:YES];
+		//0-sleep
+		//1-half-asleep
+		self.sleepingState = 0;
+		
+		self.retiringIdentifiers = [[NSMutableArray alloc] init];
+		self.queuedIdentifiers = [[NSMutableArray alloc] init];
+		self.immortalIdentifiers = [[NSMutableArray alloc] init];
+		self.advancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
+		self.advancedMonitoringHistory = [[NSMutableDictionary alloc] init];
+		self.pendingAccessoryUpdateFolderID = [[NSMutableArray alloc] init];
+		self.grantedOnceIdentifiers = [[NSMutableArray alloc] init];
+		self.userInitiatedIdentifiers = [[NSMutableArray alloc] init];
+		_assertions = [NSMutableDictionary dictionary];
+		_assertionIdentifiers = [NSMutableDictionary dictionary];
+		
+		//[self addObserver:self forKeyPath:@"queuedIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
+		//[self addObserver:self forKeyPath:@"immortalIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
+		//[self addObserver:self forKeyPath:@"advancedMonitoringIdentifiers" options:NSKeyValueObservingOptionNew context:@selector(notifySleepingState:)];
+	}
+	return self;
 }
 
 -(void)updateDarkWakeState{
-    if (self.isPreming) return;
-    if ([self.darkWakeIdentifiers count] > 0){
-        if ([self.darkWakeIdentifiers firstObjectCommonWithArray:self.queuedIdentifiers] || [self.darkWakeIdentifiers firstObjectCommonWithArray:self.immortalIdentifiers] || [self.darkWakeIdentifiers firstObjectCommonWithArray:self.advancedMonitoringIdentifiers]){
-            if (self.sleepingState == 1) return;
-            [self notifySleepingState:NO];
-            self.sleepingState = 1;
-        }else{
-            if (self.sleepingState == 0) return;
-            [self notifySleepingState:YES];
-            self.sleepingState = 0;
-        }
-    }else{
-        if (self.sleepingState == 0) return;
-        [self notifySleepingState:YES];
-        self.sleepingState = 0;
-    }
+	if (self.isPreming) return;
+	if ([self.darkWakeIdentifiers count] > 0){
+		if ([self.darkWakeIdentifiers firstObjectCommonWithArray:self.queuedIdentifiers] || [self.darkWakeIdentifiers firstObjectCommonWithArray:self.immortalIdentifiers] || [self.darkWakeIdentifiers firstObjectCommonWithArray:self.advancedMonitoringIdentifiers]){
+			if (self.sleepingState == 1) return;
+			[self notifySleepingState:NO];
+			self.sleepingState = 1;
+		}else{
+			if (self.sleepingState == 0) return;
+			[self notifySleepingState:YES];
+			self.sleepingState = 0;
+		}
+	}else{
+		if (self.sleepingState == 0) return;
+		[self notifySleepingState:YES];
+		self.sleepingState = 0;
+	}
 }
 
 -(void)update{
-    self.darkWakeIdentifiers = [self darkWakers];
-    self.dormantDarkWakeIdentifiers = [self dormantDarkWakers];
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        [self updateDarkWakeState];
-    });
+	self.darkWakeIdentifiers = [self darkWakers];
+	self.dormantDarkWakeIdentifiers = [self dormantDarkWakers];
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		[self updateDarkWakeState];
+	});
 }
 
 -(NSArray *)filterDictionary:(NSDictionary *)dict keyName:(NSString *)keyName identifier:(NSString *)identifier format:(NSString *)format{
-    
-    NSArray *array = [dict[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:format]];
-    NSArray *filteredArray = [array valueForKey:identifier];
-    return filteredArray;
+	
+	NSArray *array = [dict[keyName] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:format]];
+	NSArray *filteredArray = [array valueForKey:identifier];
+	return filteredArray;
 }
 
 -(NSArray *)darkWakers{
-    return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = YES && darkWake = YES"];
+	return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = YES && darkWake = YES"];
 }
 
 -(NSArray *)dormantDarkWakers{
-    return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = NO && darkWake = YES"];
+	return [self filterDictionary:prefs keyName:@"enabledIdentifier" identifier:@"identifier" format:@"enabled = NO && darkWake = YES"];
 }
 
 /*
@@ -115,376 +115,383 @@
  */
 
 -(BOOL)isFrontMost:(NSString *)identifier{
-    SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
-    BOOL isFrontMost = [frontMostApp.bundleIdentifier isEqualToString:identifier];
-    BOOL isUILocked = [[objc_getClass("SBLockScreenManager") sharedInstance] isUILocked];
-    if (isUILocked) isFrontMost = NO;
-    return isFrontMost;
+	SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
+	BOOL isFrontMost = [frontMostApp.bundleIdentifier isEqualToString:identifier];
+	BOOL isUILocked = [[objc_getClass("SBLockScreenManager") sharedInstance] isUILocked];
+	if (isUILocked) isFrontMost = NO;
+	return isFrontMost;
 }
 
 -(void)updateLabelAccessory:(NSString *)identifier{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[((SBIconController *)[objc_getClass("SBIconController") sharedInstance]).model applicationIconForBundleIdentifier:identifier] _notifyAccessoriesDidUpdate];
-        [self updateLabelAccessoryForDockItem:identifier];
-    });
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[[((SBIconController *)[objc_getClass("SBIconController") sharedInstance]).model applicationIconForBundleIdentifier:identifier] _notifyAccessoriesDidUpdate];
+		[self updateLabelAccessoryForDockItem:identifier];
+	});
 }
 
 -(void)updateLabelAccessoryForDockItem:(NSString *)identifier{
-    if (floatingDockView){
-        
-        for (SBApplicationIcon *icon in floatingDockView.recentIconListView.visibleIcons){
-            if ([icon.applicationBundleID isEqualToString:identifier]){
-                [icon _notifyAccessoriesDidUpdate];
-                break;
-            }
-        }
-    }
+	if (floatingDockView){
+		
+		for (SBApplicationIcon *icon in floatingDockView.recentIconListView.visibleIcons){
+			if ([icon.applicationBundleID isEqualToString:identifier]){
+				[icon _notifyAccessoriesDidUpdate];
+				break;
+			}
+		}
+	}
 }
 
 -(void)retireScene:(id)timer{
-    NSDictionary *userInfo = [timer userInfo];
-    [self _retireScene:userInfo[@"identifier"]];
+	NSDictionary *userInfo = [timer userInfo];
+	[self _retireScene:userInfo[@"identifier"]];
 }
 
 -(void)_retireAllScenesIn:(NSMutableArray *)identifiers{
-    HBLogDebug(@"Retiring all scenes in %@", identifiers);
-    
-    FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
-    NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
-    
-    NSMutableArray *toBeRemovedQueuedIdentifiers = [[NSMutableArray alloc] init];
-    NSMutableArray *toBeRemovedQueuedImmortalIdentifiers = [[NSMutableArray alloc] init];
-    NSMutableArray *toBeRemovedAdvancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
-    NSMutableArray *toBeRemovedAdvancedMonitoringHistoryIdentifiers = [[NSMutableArray alloc] init];
-    NSMutableArray *toBeRemovedAssertionIdentifiers = [[NSMutableArray alloc] init];
-
-    
-    [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
-        NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
-        if ([identifiers containsObject:identifier]) {
-            
-            if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-            
-            UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
-            [newSettings setForeground:NO];
-            [newSettings setUnderLock:NO];
-            [newSettings setDeactivationReasons:0];
-            
-            [sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
-                if (@available(iOS 14.0, *)){
-                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                }
-            }];
-            
-            [toBeRemovedQueuedIdentifiers addObject:identifier];
-            [toBeRemovedQueuedImmortalIdentifiers addObject:identifier];
-            [toBeRemovedAdvancedMonitoringIdentifiers addObject:identifier];
-            [toBeRemovedAdvancedMonitoringHistoryIdentifiers addObject:identifier];
-            [toBeRemovedAssertionIdentifiers addObject:identifier];
-            
-            [self updateLabelAccessory:identifier];
-
-            HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
-        }
-    }];
-    
-    [self.queuedIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
-    [self.immortalIdentifiers removeObjectsInArray:toBeRemovedQueuedImmortalIdentifiers];
-    [self.advancedMonitoringIdentifiers removeObjectsInArray:toBeRemovedAdvancedMonitoringIdentifiers];
-    [self.grantedOnceIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
-    [self.userInitiatedIdentifiers removeObjectsInArray:identifiers];
-    [self cleanAssertionsForBundles:toBeRemovedAssertionIdentifiers];
-
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        [self updateDarkWakeState];
-    });
-    
-    for (NSString *key in toBeRemovedAdvancedMonitoringHistoryIdentifiers){
-        [self.advancedMonitoringHistory removeObjectForKey:key];
-    }
+	HBLogDebug(@"Retiring all scenes in %@", identifiers);
+	
+	FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
+	NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
+	
+	NSMutableArray *toBeRemovedQueuedIdentifiers = [[NSMutableArray alloc] init];
+	NSMutableArray *toBeRemovedQueuedImmortalIdentifiers = [[NSMutableArray alloc] init];
+	NSMutableArray *toBeRemovedAdvancedMonitoringIdentifiers = [[NSMutableArray alloc] init];
+	NSMutableArray *toBeRemovedAdvancedMonitoringHistoryIdentifiers = [[NSMutableArray alloc] init];
+	NSMutableArray *toBeRemovedAssertionIdentifiers = [[NSMutableArray alloc] init];
+	
+	
+	[scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
+		NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+		if ([identifiers containsObject:identifier]) {
+			
+			if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
+				[self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+			}
+			
+			UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
+			[newSettings setForeground:NO];
+			[newSettings setUnderLock:NO];
+			[newSettings setDeactivationReasons:0];
+			
+			[sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
+				if (@available(iOS 14.0, *)){
+					[self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+				}
+			}];
+			
+			[toBeRemovedQueuedIdentifiers addObject:identifier];
+			[toBeRemovedQueuedImmortalIdentifiers addObject:identifier];
+			[toBeRemovedAdvancedMonitoringIdentifiers addObject:identifier];
+			[toBeRemovedAdvancedMonitoringHistoryIdentifiers addObject:identifier];
+			[toBeRemovedAssertionIdentifiers addObject:identifier];
+			
+			[self updateLabelAccessory:identifier];
+			
+			HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
+		}
+	}];
+	
+	[self.queuedIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
+	[self.immortalIdentifiers removeObjectsInArray:toBeRemovedQueuedImmortalIdentifiers];
+	[self.advancedMonitoringIdentifiers removeObjectsInArray:toBeRemovedAdvancedMonitoringIdentifiers];
+	[self.grantedOnceIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
+	[self.userInitiatedIdentifiers removeObjectsInArray:identifiers];
+	[self cleanAssertionsForBundles:toBeRemovedAssertionIdentifiers];
+	
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		[self updateDarkWakeState];
+	});
+	
+	for (NSString *key in toBeRemovedAdvancedMonitoringHistoryIdentifiers){
+		[self.advancedMonitoringHistory removeObjectForKey:key];
+	}
 }
 
 
 -(void)_retireScene:(NSString *)identifier{
-    HBLogDebug(@"Retiring %@", identifier);
-    
-    FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
-    NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
-
-    [scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
-        if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
-            
-            if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
-                [self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-            }
-            
-            UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
-            [newSettings setForeground:NO];
-            [newSettings setUnderLock:NO];
-            [newSettings setDeactivationReasons:0];
-
-            [sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
-                if (@available(iOS 14.0, *)){
-                    [self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
-                }
-            }];
-
-            [self.queuedIdentifiers removeObject:identifier];
-            [self.immortalIdentifiers removeObject:identifier];
-            [self.advancedMonitoringIdentifiers removeObject:identifier];
-            [self.grantedOnceIdentifiers removeObject:identifier];
-            [self.advancedMonitoringHistory removeObjectForKey:identifier];
-            //[self invalidateAssertion:identifier];
-            [self.userInitiatedIdentifiers removeObject:identifier];
-            [self updateLabelAccessory:identifier];
-            [self cleanAssertionsForBundle:identifier];
-
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                [self updateDarkWakeState];
-            });
-            
-            HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
-                        
-            *stop = YES;
-        }
-    }];
+	HBLogDebug(@"Retiring %@", identifier);
+	
+	FBSceneManager *sceneManager  = [objc_getClass("FBSceneManager") sharedInstance];
+	NSMutableDictionary *scenesByID = [sceneManager valueForKey:@"_scenesByID"];
+	
+	[scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
+		if ([identifier isEqualToString:scene.clientProcess.identity.embeddedApplicationIdentifier]) {
+			
+			if (![self.retiringIdentifiers containsObject:scene.clientProcess.identity.embeddedApplicationIdentifier]){
+				[self.retiringIdentifiers addObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+			}
+			
+			UIMutableApplicationSceneSettings *newSettings = [scene.settings mutableCopy];
+			[newSettings setForeground:NO];
+			[newSettings setUnderLock:NO];
+			[newSettings setDeactivationReasons:0];
+			
+			[sceneManager _applyMutableSettings:[newSettings copy] toScene:scene withTransitionContext:nil completion:^{
+				if (@available(iOS 14.0, *)){
+					[self.retiringIdentifiers removeObject:scene.clientProcess.identity.embeddedApplicationIdentifier];
+				}
+			}];
+			
+			[self.queuedIdentifiers removeObject:identifier];
+			[self.immortalIdentifiers removeObject:identifier];
+			[self.advancedMonitoringIdentifiers removeObject:identifier];
+			[self.grantedOnceIdentifiers removeObject:identifier];
+			[self.advancedMonitoringHistory removeObjectForKey:identifier];
+			//[self invalidateAssertion:identifier];
+			[self.userInitiatedIdentifiers removeObject:identifier];
+			[self updateLabelAccessory:identifier];
+			[self cleanAssertionsForBundle:identifier];
+			
+			dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+				[self updateDarkWakeState];
+			});
+			
+			HBLogDebug(@"Retired %@", scene.clientProcess.identity.embeddedApplicationIdentifier);
+			
+			*stop = YES;
+		}
+	}];
 }
 
 -(int)pidForBundleIdentifier:(NSString *)bundleIdentifier{
-    return [[objc_getClass("FBSSystemService") sharedService] pidForApplication:bundleIdentifier];
+	return [[objc_getClass("FBSSystemService") sharedService] pidForApplication:bundleIdentifier];
+}
+
+-(NSString *)bundleIdentifierForPid:(pid_t)pid{
+	SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+	SBApplication *sbApp = [sbAppController applicationWithPid:pid];
+	if (!sbApp || !sbApp.bundleIdentifier) return nil;
+	return sbApp.bundleIdentifier;
 }
 
 -(void)terminateProcess:(id)timer{
-    NSDictionary *userInfo = [timer userInfo];
-    [self _terminateProcess:userInfo[@"identifier"]];
+	NSDictionary *userInfo = [timer userInfo];
+	[self _terminateProcess:userInfo[@"identifier"]];
 }
 
 -(void)_terminateProcess:(NSString *)identifier{
-    HBLogDebug(@"Terminating %@", identifier);
-    [[objc_getClass("FBSSystemService") sharedService] terminateApplication:identifier forReason:FBSTerminationReasonUserInitiated andReport:NO withDescription:nil completion:^(NSInteger result){
-        [self.queuedIdentifiers removeObject:identifier];
-        [self.immortalIdentifiers removeObject:identifier];
-        [self.advancedMonitoringIdentifiers removeObject:identifier];
-        [self.grantedOnceIdentifiers removeObject:identifier];
-        [self.advancedMonitoringHistory removeObjectForKey:identifier];
-        //[self invalidateAssertion:identifier];
-        [self updateLabelAccessory:identifier];
-        [self.userInitiatedIdentifiers removeObject:identifier];
-
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-            [self updateDarkWakeState];
-        });
-        HBLogDebug(@"Terminated %@, with result: %ld", identifier, result);
-    }];
+	HBLogDebug(@"Terminating %@", identifier);
+	[[objc_getClass("FBSSystemService") sharedService] terminateApplication:identifier forReason:FBSTerminationReasonUserInitiated andReport:NO withDescription:nil completion:^(NSInteger result){
+		[self.queuedIdentifiers removeObject:identifier];
+		[self.immortalIdentifiers removeObject:identifier];
+		[self.advancedMonitoringIdentifiers removeObject:identifier];
+		[self.grantedOnceIdentifiers removeObject:identifier];
+		[self.advancedMonitoringHistory removeObjectForKey:identifier];
+		//[self invalidateAssertion:identifier];
+		[self updateLabelAccessory:identifier];
+		[self.userInitiatedIdentifiers removeObject:identifier];
+		
+		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+			[self updateDarkWakeState];
+		});
+		HBLogDebug(@"Terminated %@, with result: %ld", identifier, result);
+	}];
 }
 
 /*
--(void)setTaskState:(RBSTaskState)rbsState forBundle:(NSString *)identifier{
-    rbsState = RBSTaskStateNone;
-    identifier = @"com.newin.nplayer";
-    RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
-    NSDictionary *stateByIdentity = [rbsCnx valueForKey:@"_stateByIdentity"];
-    
-    [stateByIdentity enumerateKeysAndObjectsUsingBlock:^(RBSProcessIdentity *identity, RBSProcessState *state, BOOL *stop) {
-        
-        if ([state.process.identity.embeddedApplicationIdentifier isEqualToString:identifier]){
-            HBLogDebug(@"set state: %lu ** %@", rbsState, state.process.identity.embeddedApplicationIdentifier);
-            [state setLegacyAssertions:nil];
-            [state setTaskState:RBSTaskStateNone];
-            //state.primitiveAssertions = nil;
-            state.taskState = rbsState;
-            //[self invalidateAssertionForBundle:identifier];
-            *stop =YES;
-        }
-    }];
-}
-
--(BOOL)invalidateAssertionForBundle:(NSString *)identifier{
-    identifier = @"com.newin.nplayer";
-    BOOL invalidated = NO;
-    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
-    if (sbAppController){
-        RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
-        NSMapTable *acquiredAssertionsByIdentifier = [rbsCnx valueForKey:@"_acquiredAssertionsByIdentifier"];
-        
-        NSEnumerator *enumerator = [acquiredAssertionsByIdentifier objectEnumerator];
-        RBSAssertion *assertion;
-        
-        while ((assertion = [enumerator nextObject])) {
-            HBLogDebug(@"assertion: %@", assertion);
-            SBApplication *sbApp = [sbAppController applicationWithPid:assertion.target.processIdentifier.pid];
-            NSString *bundleIdentifier = sbApp.bundleIdentifier;
-            HBLogDebug(@"bundleIdentifier: %@ ** %@", bundleIdentifier,identifier);
-            if ([bundleIdentifier isEqualToString:identifier]){
-                HBLogDebug(@"Invalidated: %@", bundleIdentifier);
-                [self _reallyInvalidateAssertion:assertion];
-                invalidated = YES;
-            }
-        }
-    }
-    return invalidated;
-}
-*/
+ -(void)setTaskState:(RBSTaskState)rbsState forBundle:(NSString *)identifier{
+ rbsState = RBSTaskStateNone;
+ identifier = @"com.newin.nplayer";
+ RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
+ NSDictionary *stateByIdentity = [rbsCnx valueForKey:@"_stateByIdentity"];
+ 
+ [stateByIdentity enumerateKeysAndObjectsUsingBlock:^(RBSProcessIdentity *identity, RBSProcessState *state, BOOL *stop) {
+ 
+ if ([state.process.identity.embeddedApplicationIdentifier isEqualToString:identifier]){
+ HBLogDebug(@"set state: %lu ** %@", rbsState, state.process.identity.embeddedApplicationIdentifier);
+ [state setLegacyAssertions:nil];
+ [state setTaskState:RBSTaskStateNone];
+ //state.primitiveAssertions = nil;
+ state.taskState = rbsState;
+ //[self invalidateAssertionForBundle:identifier];
+ *stop =YES;
+ }
+ }];
+ }
+ 
+ -(BOOL)invalidateAssertionForBundle:(NSString *)identifier{
+ identifier = @"com.newin.nplayer";
+ BOOL invalidated = NO;
+ SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
+ if (sbAppController){
+ RBSConnection *rbsCnx = [objc_getClass("RBSConnection") sharedInstance];
+ NSMapTable *acquiredAssertionsByIdentifier = [rbsCnx valueForKey:@"_acquiredAssertionsByIdentifier"];
+ 
+ NSEnumerator *enumerator = [acquiredAssertionsByIdentifier objectEnumerator];
+ RBSAssertion *assertion;
+ 
+ while ((assertion = [enumerator nextObject])) {
+ HBLogDebug(@"assertion: %@", assertion);
+ SBApplication *sbApp = [sbAppController applicationWithPid:assertion.target.processIdentifier.pid];
+ NSString *bundleIdentifier = sbApp.bundleIdentifier;
+ HBLogDebug(@"bundleIdentifier: %@ ** %@", bundleIdentifier,identifier);
+ if ([bundleIdentifier isEqualToString:identifier]){
+ HBLogDebug(@"Invalidated: %@", bundleIdentifier);
+ [self _reallyInvalidateAssertion:assertion];
+ invalidated = YES;
+ }
+ }
+ }
+ return invalidated;
+ }
+ */
 
 -(BOOL)isQueued:(NSString *)identifier{
-    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
-    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
-    NSArray *timerInQueues = [queues allKeys];
- 
-    for (PCPersistentTimer *persistentTimer in timerInQueues){
-        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
-        NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
-        if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
-            return YES;
-            break;
-        }
-    }
-    return NO;
+	PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+	NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+	NSArray *timerInQueues = [queues allKeys];
+	
+	for (PCPersistentTimer *persistentTimer in timerInQueues){
+		PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+		NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
+		if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
+			return YES;
+			break;
+		}
+	}
+	return NO;
 }
 
 -(void)invalidateQueue:(NSString *)identifier{
-    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
-    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
-    NSArray *timerInQueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerInQueues);
-    [self.immortalIdentifiers removeObject:identifier];
-    [self.advancedMonitoringIdentifiers removeObject:identifier];
-    [self.advancedMonitoringHistory removeObjectForKey:identifier];
-    ////[self invalidateAssertion:identifier];
-    //[self.userInitiatedIdentifiers removeObject:identifier];
-    
-    //[self.grantedOnceIdentifiers removeObject:identifier];
-    
-    for (PCPersistentTimer *persistentTimer in timerInQueues){
-        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
-        NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
-        //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
-        if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
-            [self.queuedIdentifiers removeObject:identifier];
-            //[self updateLabelAccessory:identifier];
-            [simpleTimer invalidate];
-            simpleTimer = nil;
-            HBLogDebug(@"Invalidated %@", identifier);
-            break;
-        }
-    }
-    [self updateLabelAccessory:identifier];
-    
+	PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+	NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+	NSArray *timerInQueues = [queues allKeys];
+	//HBLogDebug(@"allkeys: %@", timerInQueues);
+	[self.immortalIdentifiers removeObject:identifier];
+	[self.advancedMonitoringIdentifiers removeObject:identifier];
+	[self.advancedMonitoringHistory removeObjectForKey:identifier];
+	////[self invalidateAssertion:identifier];
+	//[self.userInitiatedIdentifiers removeObject:identifier];
+	
+	//[self.grantedOnceIdentifiers removeObject:identifier];
+	
+	for (PCPersistentTimer *persistentTimer in timerInQueues){
+		PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+		NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
+		//HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
+		if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
+			[self.queuedIdentifiers removeObject:identifier];
+			//[self updateLabelAccessory:identifier];
+			[simpleTimer invalidate];
+			simpleTimer = nil;
+			HBLogDebug(@"Invalidated %@", identifier);
+			break;
+		}
+	}
+	[self updateLabelAccessory:identifier];
+	
 }
 
 -(void)invalidateAllQueues{
-    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
-    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
-    NSArray *timerInQueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerInQueues);
-    for (NSString *identifier in self.immortalIdentifiers.copy){
-        [self _retireScene:identifier];
-        [self.immortalIdentifiers removeObject:identifier];
-        [self.advancedMonitoringIdentifiers removeObject:identifier];
-        //[self.grantedOnceIdentifiers removeObject:identifier];
-        [self.advancedMonitoringHistory removeObjectForKey:identifier];
-        //[self invalidateAssertion:identifier];
-        //[self.userInitiatedIdentifiers removeObject:identifier];
-        [self updateLabelAccessory:identifier];
-    }
-    
-    
-    for (PCPersistentTimer *persistentTimer in timerInQueues){
-        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
-        NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
-        //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
-        if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
-            NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
-            [self _retireScene:identifier];
-            [self.queuedIdentifiers removeObject:identifier];
-            [self updateLabelAccessory:identifier];
-            [simpleTimer invalidate];
-            simpleTimer = nil;
-            HBLogDebug(@"Invalidated %@", identifier);
-        }
-    }
+	PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+	NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+	NSArray *timerInQueues = [queues allKeys];
+	//HBLogDebug(@"allkeys: %@", timerInQueues);
+	for (NSString *identifier in self.immortalIdentifiers.copy){
+		[self _retireScene:identifier];
+		[self.immortalIdentifiers removeObject:identifier];
+		[self.advancedMonitoringIdentifiers removeObject:identifier];
+		//[self.grantedOnceIdentifiers removeObject:identifier];
+		[self.advancedMonitoringHistory removeObjectForKey:identifier];
+		//[self invalidateAssertion:identifier];
+		//[self.userInitiatedIdentifiers removeObject:identifier];
+		[self updateLabelAccessory:identifier];
+	}
+	
+	
+	for (PCPersistentTimer *persistentTimer in timerInQueues){
+		PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+		NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
+		//HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
+		if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
+			NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
+			[self _retireScene:identifier];
+			[self.queuedIdentifiers removeObject:identifier];
+			[self updateLabelAccessory:identifier];
+			[simpleTimer invalidate];
+			simpleTimer = nil;
+			HBLogDebug(@"Invalidated %@", identifier);
+		}
+	}
 }
 
 -(void)invalidateAllQueuesIn:(NSArray *)identifiers{
-    PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
-    NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
-    NSArray *timerInQueues = [queues allKeys];
-    //HBLogDebug(@"allkeys: %@", timerInQueues);
-    
-    for (NSString *identifier in identifiers){
-        [self _retireScene:identifier];
-        [self.immortalIdentifiers removeObject:identifier];
-        [self.advancedMonitoringIdentifiers removeObject:identifier];
-        //[self.grantedOnceIdentifiers removeObject:identifier];
-        [self.advancedMonitoringHistory removeObjectForKey:identifier];
-        //[self invalidateAssertion:identifier];
-        //[self.userInitiatedIdentifiers removeObject:identifier];
-        [self updateLabelAccessory:identifier];
-    }
-    
-    for (PCPersistentTimer *persistentTimer in timerInQueues){
-        PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
-        NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
-        //HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
-        if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
-            NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
-            if ([identifiers containsObject:identifier]){
-                [self _retireScene:identifier];
-                [self.queuedIdentifiers removeObject:identifier];
-                [self updateLabelAccessory:identifier];
-                [simpleTimer invalidate];
-                simpleTimer = nil;
-                HBLogDebug(@"Invalidated %@", identifier);
-            }
-        }
-    }
+	PCPersistentInterfaceManager *pcTimerManager = [objc_getClass("PCPersistentInterfaceManager") sharedInstance];
+	NSMapTable *queues = [pcTimerManager valueForKey:@"_delegatesAndQueues"];
+	NSArray *timerInQueues = [queues allKeys];
+	//HBLogDebug(@"allkeys: %@", timerInQueues);
+	
+	for (NSString *identifier in identifiers){
+		[self _retireScene:identifier];
+		[self.immortalIdentifiers removeObject:identifier];
+		[self.advancedMonitoringIdentifiers removeObject:identifier];
+		//[self.grantedOnceIdentifiers removeObject:identifier];
+		[self.advancedMonitoringHistory removeObjectForKey:identifier];
+		//[self invalidateAssertion:identifier];
+		//[self.userInitiatedIdentifiers removeObject:identifier];
+		[self updateLabelAccessory:identifier];
+	}
+	
+	for (PCPersistentTimer *persistentTimer in timerInQueues){
+		PCSimpleTimer *simpleTimer = [persistentTimer valueForKey:@"_simpleTimer"];
+		NSString *serviceindentifier = [simpleTimer valueForKey:@"_serviceIdentifier"];
+		//HBLogDebug(@"serviceindentifier: %@", serviceindentifier);
+		if ([serviceindentifier containsString:@"com.udevs.bakgrunnur."]){
+			NSString *identifier = [serviceindentifier stringByReplacingOccurrencesOfString:@"com.udevs.bakgrunnur." withString:@""];
+			if ([identifiers containsObject:identifier]){
+				[self _retireScene:identifier];
+				[self.queuedIdentifiers removeObject:identifier];
+				[self updateLabelAccessory:identifier];
+				[simpleTimer invalidate];
+				simpleTimer = nil;
+				HBLogDebug(@"Invalidated %@", identifier);
+			}
+		}
+	}
 }
 
 -(RBSAssertion *)assertionWithTarget:(RBSTarget *)target aggressive:(BOOL)aggressive{
-    //RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
-    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:7 flags:(aggressive?(RBSLegacyFlagPreventTaskSuspend | RBSLegacyFlagPreventTaskThrottleDown | RBSLegacyFlagPreventThrottleDownUI | RBSLegacyFlagWantsForegroundResourcePriority): RBSLegacyFlagPreventTaskSuspend)];
-    //RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
-    //RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
-    //RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
-    RBSHereditaryGrant *endpointInjectionGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.boardservices.endpoint-injection" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
-    RBSHereditaryGrant *visibilityGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.frontboard.visibility" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
-    //RBSCPUAccessGrant *cpuAccessGrant = [objc_getClass("RBSCPUAccessGrant") grantWithUserInteractivityAndFocus];
-    //RBSGPUAccessGrant *gpuAccessGrant = [objc_getClass("RBSGPUAccessGrant") grant];
-    return [[objc_getClass("RBSAssertion") alloc] initWithExplanation:[NSString stringWithFormat:@"Bakgrunnur injects Compound V into %@", target.environment] target:target attributes:@[legacyAttr, endpointInjectionGrant, visibilityGrant]];
+	//RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
+	RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:BKSProcessAssertionReasonBackgroundUI flags:(aggressive ? (BKSProcessAssertionPreventTaskSuspend | BKSProcessAssertionPreventTaskThrottleDown | BKSProcessAssertionPreventThrottleDownUI | BKSProcessAssertionWantsForegroundResourcePriority) : BKSProcessAssertionPreventTaskSuspend)];
+	//RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
+	//RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
+	//RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
+	RBSHereditaryGrant *endpointInjectionGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.boardservices.endpoint-injection" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
+	RBSHereditaryGrant *visibilityGrant = [objc_getClass("RBSHereditaryGrant") grantWithNamespace:@"com.apple.frontboard.visibility" sourceEnvironment:@"UIScene:com.apple.frontboard.systemappservices::com.apple.springboard" attributes:nil];
+	//RBSCPUAccessGrant *cpuAccessGrant = [objc_getClass("RBSCPUAccessGrant") grantWithUserInteractivityAndFocus];
+	//RBSGPUAccessGrant *gpuAccessGrant = [objc_getClass("RBSGPUAccessGrant") grant];
+	return [[objc_getClass("RBSAssertion") alloc] initWithExplanation:[NSString stringWithFormat:@"Bakgrunnur injects Compound V into %@", target.environment] target:target attributes:@[legacyAttr, endpointInjectionGrant, visibilityGrant]];
 }
 
 -(RBSTarget *)targetFromBundle:(NSString *)identifier withTargetEnv:(NSString *)targetEnv{
-    return [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
+	return [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
 }
 
 -(RBSAssertionIdentifier *)_reallyAcquireAssertion:(RBSAssertion *)assertion error:(NSError **)err{
-    NSError *error = nil;
-    [assertion acquireWithError:&error];
-    if (err){
-        *err = error;
-        return nil;
-    }
-    RBSAssertionIdentifier *rbsProcessID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:assertion error:&error];
-    if (err){
-        *err = error;
-        return nil;
-    }
-    return rbsProcessID;
+	NSError *error = nil;
+	[assertion acquireWithError:&error];
+	if (err){
+		*err = error;
+		return nil;
+	}
+	RBSAssertionIdentifier *rbsProcessID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:assertion error:&error];
+	if (err){
+		*err = error;
+		return nil;
+	}
+	return rbsProcessID;
 }
 
 -(void)_reallyInvalidateAssertion:(RBSAssertion *)assertion identifier:(RBSAssertionIdentifier *)identifier{
-    [assertion invalidate];
-    [[objc_getClass("RBSConnection") sharedInstance] invalidateAssertionWithIdentifier:identifier error:nil];
-    
+	[assertion invalidate];
+	[[objc_getClass("RBSConnection") sharedInstance] invalidateAssertionWithIdentifier:identifier error:nil];
+	
 }
 
 -(void)_invalidateAndFlushAssertion:(RBSAssertion *)assertion rbsIdentifier:(NSString *)identifier{
-    [self _reallyInvalidateAssertion:assertion identifier:_assertionIdentifiers[identifier]];
-    [_assertions removeObjectForKey:identifier];
-    [_assertionIdentifiers removeObjectForKey:identifier];
-    HBLogDebug(@"Invalidated and flushed assertion for %@", identifier);
+	[self _reallyInvalidateAssertion:assertion identifier:_assertionIdentifiers[identifier]];
+	[_assertions removeObjectForKey:identifier];
+	[_assertionIdentifiers removeObjectForKey:identifier];
+	HBLogDebug(@"Invalidated and flushed assertion for %@", identifier);
 }
 
 -(void)cleanAssertionsForBundle:(NSString *)identifier{
@@ -505,11 +512,10 @@
 
 -(void)cleanAssertionsForPid:(int)pid{
 	if (pid > 0){
-		SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstanceIfExists];
-		SBApplication *sbApp = [sbAppController applicationWithPid:pid];
-		if (!sbApp || !sbApp.bundleIdentifier) return;
+		NSString *identifier = [self bundleIdentifierForPid:pid];
+		if (!identifier) return;
 		for (NSString *key in [_assertions allKeys]){
-			if ([key containsString:sbApp.bundleIdentifier]){
+			if ([key containsString:identifier]){
 				[self _invalidateAndFlushAssertion:_assertions[key] rbsIdentifier:key];
 			}
 		}
@@ -517,603 +523,603 @@
 }
 
 -(void)subscribeToBundleDeath:(NSString *)identifier{
-    RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[self pidForBundleIdentifier:identifier]];
-    if (processID){
-        [[objc_getClass("RBSConnection") sharedInstance] subscribeToProcessDeath:processID handler:^{
-            [self cleanAssertionsForPid:processID.pid];
-        }];
-    }
+	RBSProcessIdentifier *processID = [objc_getClass("RBSProcessIdentifier") identifierWithPid:[self pidForBundleIdentifier:identifier]];
+	if (processID){
+		[[objc_getClass("RBSConnection") sharedInstance] subscribeToProcessDeath:processID handler:^{
+			[self cleanAssertionsForPid:processID.pid];
+		}];
+	}
 }
 
 
 -(void)acquireAssertionIfNecessary:(FBScene *)scene aggressive:(BOOL)aggressive{
-    NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
-    
-    if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggressive) || (_assertions[scene.identifier].attributes.count > 1 && !aggressive)))){
-        [self _invalidateAndFlushAssertion:_assertions[scene.identifier] rbsIdentifier:scene.identifier];
-    }
-    
-    if (!_assertions[scene.identifier]){
-        
-        RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
-        
-        _assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
-        
-        _assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
-        
-        [self subscribeToBundleDeath:identifier];
-        
-        HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggressive?@"aggressive":@"non-aggressive");
-    }
+	NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
+	
+	if ((_assertions[scene.identifier] && !_assertions[scene.identifier].valid) || (_assertions[scene.identifier] && ((_assertions[scene.identifier].attributes.count == 1 && aggressive) || (_assertions[scene.identifier].attributes.count > 1 && !aggressive)))){
+		[self _invalidateAndFlushAssertion:_assertions[scene.identifier] rbsIdentifier:scene.identifier];
+	}
+	
+	if (!_assertions[scene.identifier]){
+		
+		RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
+		
+		_assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
+		
+		_assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
+		
+		[self subscribeToBundleDeath:identifier];
+		
+		HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggressive ? @"aggressive" : @"non-aggressive");
+	}
 }
 
 -(void)queueProcess:(NSString *)identifier softRemoval:(BOOL)removeGracefully expirationTime:(double)expTime completion:(void (^)())completionHandler{
-    /*
-    RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
-    RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:1 flags:13];
-    RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
-    RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
-    RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
-
-    RBSTarget *target = [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier]];
-    
-    if (!self.backgroundAssertion){
-    NSError *err = nil;
-    self.backgroundAssertion  = [[objc_getClass("RBSAssertion") alloc] initWithExplanation:@"Bakgrunnur" target:target attributes:@[runningAttr, legacyAttr, preventSleepGrant, preventBackgroundSocketGrant, inactiveGrant]];
-    [self.backgroundAssertion acquireWithError:&err];
-    HBLogDebug(@"Error: %@", err);
-
-    
-    self.backgroundAssertionID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:self.backgroundAssertion error:&err];
-    HBLogDebug(@"Error: %@", err);
-    }
-    */
-    
-    PCPersistentTimer *timer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully?@selector(retireScene:):@selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
-    
-    [timer setMinimumEarlyFireProportion:1];
-    
-    if ([NSThread isMainThread]) {
-        [timer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
-    } else {
-        dispatch_async(dispatch_get_main_queue(), ^ {
-            [timer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
-        });
-    }
-    
-    [self.queuedIdentifiers addObject:identifier];
-    [self updateLabelAccessory:identifier];
-    
-    if (completionHandler){
-        completionHandler();
-    }
-    
-    //SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
-    //SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
-    //[sbApp _setNewlyInstalled:YES];
+	/*
+	 RBSRunningReasonAttribute *runningAttr = [objc_getClass("RBSRunningReasonAttribute") withReason:1000];
+	 RBSLegacyAttribute *legacyAttr = [objc_getClass("RBSLegacyAttribute") attributeWithReason:1 flags:13];
+	 RBSPreventIdleSleepGrant *preventSleepGrant = [objc_getClass("RBSPreventIdleSleepGrant") grant];
+	 RBSAppNapPreventBackgroundSocketsGrant *preventBackgroundSocketGrant = [objc_getClass("RBSAppNapPreventBackgroundSocketsGrant") grant];
+	 RBSAppNapInactiveGrant *inactiveGrant = [objc_getClass("RBSAppNapInactiveGrant") grant];
+	 
+	 RBSTarget *target = [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier]];
+	 
+	 if (!self.backgroundAssertion){
+	 NSError *err = nil;
+	 self.backgroundAssertion  = [[objc_getClass("RBSAssertion") alloc] initWithExplanation:@"Bakgrunnur" target:target attributes:@[runningAttr, legacyAttr, preventSleepGrant, preventBackgroundSocketGrant, inactiveGrant]];
+	 [self.backgroundAssertion acquireWithError:&err];
+	 HBLogDebug(@"Error: %@", err);
+	 
+	 
+	 self.backgroundAssertionID = [[objc_getClass("RBSConnection") sharedInstance] acquireAssertion:self.backgroundAssertion error:&err];
+	 HBLogDebug(@"Error: %@", err);
+	 }
+	 */
+	
+	PCPersistentTimer *timer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:expTime] serviceIdentifier:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier] target:self selector:(removeGracefully ? @selector(retireScene:) : @selector(terminateProcess:)) userInfo:@{@"identifier":identifier}];
+	
+	[timer setMinimumEarlyFireProportion:1];
+	
+	if ([NSThread isMainThread]) {
+		[timer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^ {
+			[timer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
+		});
+	}
+	
+	[self.queuedIdentifiers addObject:identifier];
+	[self updateLabelAccessory:identifier];
+	
+	if (completionHandler){
+		completionHandler();
+	}
+	
+	//SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
+	//SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
+	//[sbApp _setNewlyInstalled:YES];
 }
 
 -(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier{
-    if (self.presentBanner && !self.temporarilyHaltBanner){
-        [self presentBannerWithSubtitle:subtitle forBundle:identifier];
-    }
+	if (self.presentBanner && !self.temporarilyHaltBanner){
+		[self presentBannerWithSubtitle:subtitle forBundle:identifier];
+	}
 }
 
 -(void)presentBannerWithSubtitle:(NSString *)subtitle forBundle:(NSString *)identifier{
-        const char *displayName = [[self appNameForBundleIdentifier:identifier] UTF8String];
-        const char *cSubtitle = [subtitle UTF8String];
-        [self sendVexillariusMesage:[self vexillariusMesageWithTitle:displayName subtitle:cSubtitle imageName:"Bakgrunnur" timeout:2.0]];
+	const char *displayName = [[self appNameForBundleIdentifier:identifier] UTF8String];
+	const char *cSubtitle = [subtitle UTF8String];
+	[self sendVexillariusMesage:[self vexillariusMesageWithTitle:displayName subtitle:cSubtitle imageName:"Bakgrunnur" timeout:2.0]];
 }
 
 -(NSString *)formattedExpiration:(double)seconds{
-    NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
-    
-    if (seconds < 60){
-        formatter.numberStyle = NSNumberFormatterNoStyle;
-        return [NSString stringWithFormat:@"%@s", [formatter stringFromNumber:@(seconds)]];
-    }else if (seconds < 3600){
-        formatter.numberStyle = NSNumberFormatterNoStyle;
-        return [NSString stringWithFormat:@"%@m", [formatter stringFromNumber:@(seconds/60.0)]];
-    }else if (fmod(seconds, 60.0) > 0){
-        formatter.numberStyle = NSNumberFormatterDecimalStyle;
-        formatter.maximumFractionDigits = 1;
-        formatter.roundingMode = NSNumberFormatterRoundUp;
-        return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
-    }else{
-        formatter.numberStyle = NSNumberFormatterNoStyle;
-        return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
-    }
+	NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
+	
+	if (seconds < 60){
+		formatter.numberStyle = NSNumberFormatterNoStyle;
+		return [NSString stringWithFormat:@"%@s", [formatter stringFromNumber:@(seconds)]];
+	}else if (seconds < 3600){
+		formatter.numberStyle = NSNumberFormatterNoStyle;
+		return [NSString stringWithFormat:@"%@m", [formatter stringFromNumber:@(seconds/60.0)]];
+	}else if (fmod(seconds, 60.0) > 0){
+		formatter.numberStyle = NSNumberFormatterDecimalStyle;
+		formatter.maximumFractionDigits = 1;
+		formatter.roundingMode = NSNumberFormatterRoundUp;
+		return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
+	}else{
+		formatter.numberStyle = NSNumberFormatterNoStyle;
+		return [NSString stringWithFormat:@"%@h", [formatter stringFromNumber:@(seconds/3600.0)]];
+	}
 }
 
 -(NSString *)appNameForBundleIdentifier:(NSString *)identifier{
-    SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
-    SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
-    return sbApp.displayName;
+	SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
+	SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
+	return sbApp.displayName;
 }
 
 -(const char *)fullImagePathNamed:(const char*)name ext:(const char*)fileExt mode:(int)mode{
-    static char str[128];
-    snprintf(str, sizeof(str), "/Library/Application Support/Bakgrunnur.bundle/%s-%s.%s", name, (mode==0?"Light":"Dark"), fileExt);
-    return str;
+	static char str[128];
+	snprintf(str, sizeof(str), "/Library/Application Support/Bakgrunnur.bundle/%s-%s.%s", name, (mode==0 ? "Light" : "Dark"), fileExt);
+	return str;
 }
 
 -(xpc_object_t)vexillariusMesageWithTitle:(const char *)title subtitle:(const char *)subtitle imageName:(const char *)imageName timeout:(double)timeout{
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_double(message, VXKey.timeout, timeout?:2.0);
-    xpc_dictionary_set_string(message, VXKey.title, title);
-    xpc_dictionary_set_string(message, VXKey.subtitle, subtitle);
-
-    if (@available(iOS 13.0, *)){
-        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleLight){
-            const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:1];
-            xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
-        }else{
-            const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:0];
-            xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
-        }
-    }
-    return message;
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_double(message, VXKey.timeout, timeout ?: 2.0);
+	xpc_dictionary_set_string(message, VXKey.title, title);
+	xpc_dictionary_set_string(message, VXKey.subtitle, subtitle);
+	
+	if (@available(iOS 13.0, *)){
+		if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleLight){
+			const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:1];
+			xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
+		}else{
+			const char *imgPath = [self fullImagePathNamed:imageName ext:"png" mode:0];
+			xpc_dictionary_set_string(message, VXKey.leadingImagePath, imgPath);
+		}
+	}
+	return message;
 }
 
 -(xpc_connection_t)vxXPCConnection{
-    xpc_connection_t connection =
-    xpc_connection_create_mach_service("com.udevs.vexillarius", NULL, 0);
-    xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
-    });
-    xpc_connection_resume(connection);
-    return connection;
+	xpc_connection_t connection =
+	xpc_connection_create_mach_service("com.udevs.vexillarius", NULL, 0);
+	xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+	});
+	xpc_connection_resume(connection);
+	return connection;
 }
 
 -(void)sendVexillariusMesage:(xpc_object_t)message{
-    xpc_connection_t cslConnection = [self vxXPCConnection];
-    if (cslConnection){
-        xpc_connection_send_message(cslConnection, message);
-    }
+	xpc_connection_t cslConnection = [self vxXPCConnection];
+	if (cslConnection){
+		xpc_connection_send_message(cslConnection, message);
+	}
 }
 
 -(void)setTaskEventsDeltaHistoryForBundleIdentifier:(NSString *)identifier newHistory:(NSMutableDictionary *)history lastHistory:(NSMutableDictionary *)historyDictAtInstance timeStamp:(NSTimeInterval)timeStamp delay:(double)delay{
-    
-    [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
-    [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
-    [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
-        history[@(timeStamp)] = historyDictAtInstance;
-        self.advancedMonitoringHistory[identifier] = history;
-    });
+	
+	[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
+	[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
+	[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
+		history[@(timeStamp)] = historyDictAtInstance;
+		self.advancedMonitoringHistory[identifier] = history;
+	});
 }
 
 
 
 -(void)setTaskEventsDeltaHistoryForBundleIdentifier:(NSString *)identifier newHistory:(NSMutableDictionary *)history lastHistory:(NSMutableDictionary *)historyDictAtInstanceIn withNetstat:(BOOL)requestNestat timeStamp:(NSTimeInterval)timeStamp delay:(double)delay{
-    
-    if (!requestNestat){
-        [self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstanceIn timeStamp:timeStamp delay:delay];
-        return;
-    }
-    
-    __block NSMutableDictionary *historyDictAtInstance = [historyDictAtInstanceIn mutableCopy];
-    
-    [self netStatDeltaForBundleIdentifiers:@[identifier] history:nil cachedStats:self.cachedNetstatOne completion:^(NSDictionary *validNetstats, NSDictionary *stats){
-        self.cachedNetstatOne = stats;
-        
-        
-        NSNumber *currentRxbytes = validNetstats[identifier][@"rxbytes"]?:@0;
-        NSNumber *currentTxbytes = validNetstats[identifier][@"txbytes"]?:@0;
-        
-        [historyDictAtInstance setObject:currentRxbytes forKey:@"rxbytes"];
-        [historyDictAtInstance setObject:currentTxbytes forKey:@"txbytes"];
-        [historyDictAtInstance setObject:@([currentRxbytes unsignedLongLongValue] + [currentTxbytes unsignedLongLongValue]) forKey:@"rxtxbytes"];
-        
-        
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
-        [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
-        
-        
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            
-            
-            [self netStatDeltaForBundleIdentifiers:@[identifier] history:@{identifier:historyDictAtInstance} cachedStats:self.cachedNetstatTwo completion:^(NSDictionary *validNetstats, NSDictionary *stats){
-                
-                self.cachedNetstatTwo = stats;
-                
-                NSNumber *currentRxbytes = validNetstats[identifier][@"rxbytes"]?:@0;
-                NSNumber *currentTxbytes = validNetstats[identifier][@"txbytes"]?:@0;
-                
-                [historyDictAtInstance setObject:currentRxbytes forKey:@"rxbytes"];
-                [historyDictAtInstance setObject:currentTxbytes forKey:@"txbytes"];
-                [historyDictAtInstance setObject:@([currentRxbytes unsignedLongLongValue] + [currentTxbytes unsignedLongLongValue]) forKey:@"rxtxbytes"];
-                
-                [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
-                [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
-                [historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
-                history[@(timeStamp)] = historyDictAtInstance;
-                self.advancedMonitoringHistory[identifier] = history;
-            }];
-            
-            
-        });
-        
-        
-    }];
-    
+	
+	if (!requestNestat){
+		[self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstanceIn timeStamp:timeStamp delay:delay];
+		return;
+	}
+	
+	__block NSMutableDictionary *historyDictAtInstance = [historyDictAtInstanceIn mutableCopy];
+	
+	[self netStatDeltaForBundleIdentifiers:@[identifier] history:nil cachedStats:self.cachedNetstatOne completion:^(NSDictionary *validNetstats, NSDictionary *stats){
+		self.cachedNetstatOne = stats;
+		
+		
+		NSNumber *currentRxbytes = validNetstats[identifier][@"rxbytes"] ?: @0;
+		NSNumber *currentTxbytes = validNetstats[identifier][@"txbytes"] ?: @0;
+		
+		[historyDictAtInstance setObject:currentRxbytes forKey:@"rxbytes"];
+		[historyDictAtInstance setObject:currentTxbytes forKey:@"txbytes"];
+		[historyDictAtInstance setObject:@([currentRxbytes unsignedLongLongValue] + [currentTxbytes unsignedLongLongValue]) forKey:@"rxtxbytes"];
+		
+		
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
+		[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:nil][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
+		
+		
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			
+			
+			[self netStatDeltaForBundleIdentifiers:@[identifier] history:@{identifier:historyDictAtInstance} cachedStats:self.cachedNetstatTwo completion:^(NSDictionary *validNetstats, NSDictionary *stats){
+				
+				self.cachedNetstatTwo = stats;
+				
+				NSNumber *currentRxbytes = validNetstats[identifier][@"rxbytes"] ?: @0;
+				NSNumber *currentTxbytes = validNetstats[identifier][@"txbytes"] ?: @0;
+				
+				[historyDictAtInstance setObject:currentRxbytes forKey:@"rxbytes"];
+				[historyDictAtInstance setObject:currentTxbytes forKey:@"txbytes"];
+				[historyDictAtInstance setObject:@([currentRxbytes unsignedLongLongValue] + [currentTxbytes unsignedLongLongValue]) forKey:@"rxtxbytes"];
+				
+				[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_mach"] intValue]) forKey:@"syscalls_mach"];
+				[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_unix"] intValue]) forKey:@"syscalls_unix"];
+				[historyDictAtInstance setObject:@([[self taskEventsDeltaForBundleIdentifier:identifier history:historyDictAtInstance][@"syscalls_total"] intValue]) forKey:@"syscalls_total"];
+				history[@(timeStamp)] = historyDictAtInstance;
+				self.advancedMonitoringHistory[identifier] = history;
+			}];
+			
+			
+		});
+		
+		
+	}];
+	
 }
 
 
 
 -(void)monitoringUsage:(PCPersistentTimer *)timer{
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        
-        BOOL scheduledCall = ([timer userInfo] && [[timer userInfo][@"scheduledCall"] boolValue]) ? YES : NO;
-        HBLogDebug(@"%@", scheduledCall?@"Monitoring usage by system":@"Checking monitoring criteria");
-        
-        NSTimeInterval timeStamp = [[NSDate date] timeIntervalSince1970];
-        BOOL shouldDeferChecking = NO;
-        NSMutableArray *toBeInvalidateQueues = [[NSMutableArray alloc] init];
-        NSMutableArray *toBeRetiredIndentifiers = [[NSMutableArray alloc] init];
-        
-        for (NSString *identifier in self.advancedMonitoringIdentifiers){
-            
-            NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:identifier];
-            
-            BOOL cpuUsageEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuUsageEnabled", NO, prefs, identifierIdx);
-
-            int networkTransmissionType = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionType", 0, prefs, identifierIdx);
-
-            int systemCallsType = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsType", 0, prefs, identifierIdx);
-
-            if (scheduledCall){
-                
-                switch ([[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count]) {
-                    case 0:{
-                        NSMutableDictionary *history = [[NSMutableDictionary alloc] init];
-                        NSMutableDictionary *historyDictAtInstance = [[NSMutableDictionary alloc] init];
-                        if (cpuUsageEnabled){
-                            [historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
-                        }
-                        if (systemCallsType > 0 || networkTransmissionType > 0){
-                            shouldDeferChecking = YES;
-                            [self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
-                        }else{
-                            history[@(timeStamp)] = historyDictAtInstance;
-                            self.advancedMonitoringHistory[identifier] = history;
-                        }
-                        continue;
-                        break;
-                    }
-                    case 1:{
-                        NSMutableDictionary *history = [self.advancedMonitoringHistory[identifier] mutableCopy];
-                        NSMutableDictionary *historyDictAtInstance = [[NSMutableDictionary alloc] init];
-                        if (cpuUsageEnabled){
-                            [historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
-                        }
-                        if (systemCallsType > 0 || networkTransmissionType > 0){
-                            shouldDeferChecking = YES;
-                            [self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
-                            continue;
-                        }else{
-                            history[@(timeStamp)] = historyDictAtInstance;
-                            self.advancedMonitoringHistory[identifier] = history;
-                        }
-                        break;
-                    }
-                    case 2:{
-                        NSMutableDictionary *history = [self.advancedMonitoringHistory[identifier] mutableCopy];
-                        //HBLogDebug(@"***********history: %@", history);
-                        NSArray *timeStamps = [history allKeys];
-                        //HBLogDebug(@"***********timeStamps: %@", timeStamps);
-                        
-                        double oldestTimeStamp = [[[NSDate date] dateByAddingTimeInterval:86400] timeIntervalSince1970];
-                        for (id t in timeStamps){
-                            if ([t doubleValue] < oldestTimeStamp){
-                                oldestTimeStamp = [t doubleValue];
-                            }
-                        }
-                        [history removeObjectForKey:@(oldestTimeStamp)];
-                        //HBLogDebug(@"***********history222: %@", history);
-                        
-                        //NSMutableDictionary *historyDictAtInstance = [history[@(timeStamp)] mutableCopy];
-                        NSMutableDictionary *historyDictAtInstance = [history[[[history allKeys] firstObject]] mutableCopy];
-                        
-                        //HBLogDebug(@"***********timeStamp: %f", timeStamp);
-                        
-                        //HBLogDebug(@"***********historyDictAtInstance: %@", historyDictAtInstance);
-                        
-                        if (cpuUsageEnabled){
-                            [historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
-                        }
-                        if (systemCallsType > 0 || networkTransmissionType > 0){
-                            shouldDeferChecking = YES;
-                            [self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
-                            continue;
-                        }else{
-                            history[@(timeStamp)] = historyDictAtInstance;
-                            self.advancedMonitoringHistory[identifier] = history;
-                        }
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                if (shouldDeferChecking) return;
-            }
-            
-            
-            if (self.advancedMonitoringHistory[identifier] && [[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count] > 1){
-                
-                float cpuUsageThreshold = floatValueForConfigKeyWithPrefsAndIndex(@"cpuUsageThreshold", 0.5f, prefs, identifierIdx);
-                cpuUsageThreshold = cpuUsageThreshold <= 0.0f ? 0.0f : cpuUsageThreshold;
-                cpuUsageThreshold = !cpuUsageThreshold ? 0.0f : cpuUsageThreshold;
-                
-                //HBLogDebug(@"cpuUsageThreshold: %f", cpuUsageThreshold);
-                double rxbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"rxbytesThreshold", 0.0, prefs, identifierIdx);
-                double txbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"txbytesThreshold", 0.0, prefs, identifierIdx);
-                int networkUnit = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionUnit", 2, prefs, identifierIdx);
-                
-                double networkThresholdUnitDenomination = (double)pow((double)1024,(double)2);
-                switch (networkUnit) {
-                    case 0:
-                        networkThresholdUnitDenomination = (double)1;
-                        break;
-                    case 1:
-                        networkThresholdUnitDenomination = (double)1024;
-                        break;
-                    case 2:
-                        networkThresholdUnitDenomination = (double)pow((double)1024, (double)2);
-                        break;
-                    case 3:
-                        networkThresholdUnitDenomination = (double)pow((double)1024, (double)3);
-                        break;
-                    default:
-                        break;
-                }
-                
-                int systemCallsThreshold = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsThreshold", 0, prefs, identifierIdx);
-                systemCallsThreshold = systemCallsThreshold <= 0 ? 0 : systemCallsThreshold;
-                
-                //int criteriaToBeFullfilledCount = 0;
-                //if (cpuUsageEnabled) criteriaToBeFullfilledCount++;
-                NSString *selectedSystemCallsKey = @"syscalls_total";
-                if (systemCallsType > 0){
-                    //criteriaToBeFullfilledCount++;
-                    
-                    switch (systemCallsType) {
-                        case 1:
-                            selectedSystemCallsKey = @"syscalls_mach";
-                            break;
-                        case 2:
-                            selectedSystemCallsKey = @"syscalls_unix";
-                            break;
-                        case 3:
-                            selectedSystemCallsKey = @"syscalls_total";
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                
-                NSString *selectedNetworkTransmissionType = @"rxtxbytes";
-                double networkThreshold = 0;
-                if (networkTransmissionType > 0){
-                    //criteriaToBeFullfilledCount++;
-                    
-                    switch (networkTransmissionType) {
-                        case 1:
-                            selectedNetworkTransmissionType = @"rxbytes";
-                            networkThreshold = rxbytesThreshold;
-                            break;
-                        case 2:
-                            selectedNetworkTransmissionType = @"txbytes";
-                            networkThreshold = txbytesThreshold;
-                            break;
-                        case 3:
-                            selectedNetworkTransmissionType = @"rxtxbytes";
-                            networkThreshold = rxbytesThreshold + txbytesThreshold;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                
-                BOOL hasFullfilledThresholdCrtiteria = YES;
-                //NSMutableArray *values = [[NSMutableArray alloc] init];
-                HBLogDebug(@"advancedMonitoringHistory %@", self.advancedMonitoringHistory);
-                
-                
-                //int criteriaFullfilledCount = 0;
-                for (NSString *timestampKey in self.advancedMonitoringHistory[identifier]){
-                    //HBLogDebug(@"%@ ** rxbytesFormatted: %@", identifier, [NSByteCountFormatter stringFromByteCount:[self.advancedMonitoringHistory[identifier][timestampKey][@"rxbytes"] unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
-                    HBLogDebug(@"cpuUsageEnabled: %d",cpuUsageEnabled?1:0);
-                    if (cpuUsageEnabled && [self.advancedMonitoringHistory[identifier][timestampKey][@"cpu"] floatValue] > cpuUsageThreshold){
-                        hasFullfilledThresholdCrtiteria = NO;
-                        break;
-                    }
-                    HBLogDebug(@"systemCallsType: %d",systemCallsType);
-                    if ((systemCallsType > 0) && [self.advancedMonitoringHistory[identifier][timestampKey][selectedSystemCallsKey] intValue] > systemCallsThreshold){
-                        hasFullfilledThresholdCrtiteria = NO;
-                        break;
-                    }
-                    
-                    HBLogDebug(@"Current Speed: %lf ** Threshold: %lf", [self.advancedMonitoringHistory[identifier][timestampKey][selectedNetworkTransmissionType] doubleValue] / networkThresholdUnitDenomination , networkThreshold);
-                    
-                    if ((networkTransmissionType > 0) && (([self.advancedMonitoringHistory[identifier][timestampKey][selectedNetworkTransmissionType] doubleValue] / networkThresholdUnitDenomination) > networkThreshold)){
-                        hasFullfilledThresholdCrtiteria = NO;
-                        break;
-                    }
-                    
-                    
-                    /*
-                     if (cpuUsageEnabled && [self.advancedMonitoringHistory[identifier][timestampKey][@"cpu"] floatValue] <= cpuUsageThreshold){
-                     criteriaFullfilledCount++;
-                     }else if (cpuUsageEnabled){
-                     criteriaFullfilledCount--;
-                     }
-                     if ((systemCallsType > 0) && [self.advancedMonitoringHistory[identifier][timestampKey][selectedSystemCallsKey] intValue] <= systemCallsThreshold){
-                     criteriaFullfilledCount++;
-                     }else if (systemCallsType > 0){
-                     criteriaFullfilledCount--;
-                     }
-                     */
-                    //HBLogDebug(@"criteriaFullfilledCount: %d", criteriaFullfilledCount);
-                }
-                
-                /*
-                 if ((criteriaToBeFullfilledCount*2) == criteriaFullfilledCount){
-                 hasFullfilledThresholdCrtiteria = YES;
-                 HBLogDebug(@"All criteria fullfilled");
-                 }
-                 */
-                /*
-                 //NSArray *allVal = [self.advancedMonitoringHistory[identifier][@"cpu"] allValues];
-                 BOOL hasFullfilledThresholdCrtiteria = YES;
-                 HBLogDebug(@"allVal: %@", allVal);
-                 for (id val in allVal){
-                 if ([val floatValue] > threshold){
-                 hasFullfilledThresholdCrtiteria = NO;
-                 break;
-                 }
-                 }
-                 */
-                if (hasFullfilledThresholdCrtiteria){
-                    //[self invalidateQueue:identifier];
-                    //[self _retireScene:identifier];
-                    [toBeInvalidateQueues addObject:identifier];
-                    [toBeRetiredIndentifiers addObject:identifier];
-                    HBLogDebug(@"%@ fullfilled advanced monitoring criteria", identifier);
-                }
-            }
-        }
-        self.cachedNetstatOne = nil;
-        self.cachedNetstatTwo = nil;
-        
-        
-        dispatch_async(dispatch_get_main_queue(), ^ {
-            [self invalidateAllQueuesIn:toBeInvalidateQueues];
-            [self _retireAllScenesIn:toBeRetiredIndentifiers];
-            
-            
-            if (scheduledCall){
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    [self monitoringUsage:nil];
-                });
-            }
-            
-            if ([self.advancedMonitoringIdentifiers count] == 0){
-                [self.advancedMonitoringTimer invalidate];
-                self.advancedMonitoringTimer = nil;
-                HBLogDebug(@"Invalidated advanced monitoring timer");
-            }else{
-                [self.advancedMonitoringTimer invalidate];
-                self.advancedMonitoringTimer = nil;
-                [self startAdvancedMonitoringWithInterval:globalTimeSpan];
-                HBLogDebug(@"%@", scheduledCall ? @"Monitoring checking in next 1 second cycle" : @"Rescheduled advanced monitoring");
-            }
-        });
-    });
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		
+		BOOL scheduledCall = ([timer userInfo] && [[timer userInfo][@"scheduledCall"] boolValue]) ? YES : NO;
+		HBLogDebug(@"%@", scheduledCall ? @"Monitoring usage by system" : @"Checking monitoring criteria");
+		
+		NSTimeInterval timeStamp = [[NSDate date] timeIntervalSince1970];
+		BOOL shouldDeferChecking = NO;
+		NSMutableArray *toBeInvalidateQueues = [[NSMutableArray alloc] init];
+		NSMutableArray *toBeRetiredIndentifiers = [[NSMutableArray alloc] init];
+		
+		for (NSString *identifier in self.advancedMonitoringIdentifiers){
+			
+			NSUInteger identifierIdx = [allEntriesIdentifier indexOfObject:identifier];
+			
+			BOOL cpuUsageEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuUsageEnabled", NO, prefs, identifierIdx);
+			
+			int networkTransmissionType = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionType", 0, prefs, identifierIdx);
+			
+			int systemCallsType = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsType", 0, prefs, identifierIdx);
+			
+			if (scheduledCall){
+				
+				switch ([[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count]) {
+					case 0:{
+						NSMutableDictionary *history = [[NSMutableDictionary alloc] init];
+						NSMutableDictionary *historyDictAtInstance = [[NSMutableDictionary alloc] init];
+						if (cpuUsageEnabled){
+							[historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
+						}
+						if (systemCallsType > 0 || networkTransmissionType > 0){
+							shouldDeferChecking = YES;
+							[self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
+						}else{
+							history[@(timeStamp)] = historyDictAtInstance;
+							self.advancedMonitoringHistory[identifier] = history;
+						}
+						continue;
+						break;
+					}
+					case 1:{
+						NSMutableDictionary *history = [self.advancedMonitoringHistory[identifier] mutableCopy];
+						NSMutableDictionary *historyDictAtInstance = [[NSMutableDictionary alloc] init];
+						if (cpuUsageEnabled){
+							[historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
+						}
+						if (systemCallsType > 0 || networkTransmissionType > 0){
+							shouldDeferChecking = YES;
+							[self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
+							continue;
+						}else{
+							history[@(timeStamp)] = historyDictAtInstance;
+							self.advancedMonitoringHistory[identifier] = history;
+						}
+						break;
+					}
+					case 2:{
+						NSMutableDictionary *history = [self.advancedMonitoringHistory[identifier] mutableCopy];
+						//HBLogDebug(@"***********history: %@", history);
+						NSArray *timeStamps = [history allKeys];
+						//HBLogDebug(@"***********timeStamps: %@", timeStamps);
+						
+						double oldestTimeStamp = [[[NSDate date] dateByAddingTimeInterval:86400] timeIntervalSince1970];
+						for (id t in timeStamps){
+							if ([t doubleValue] < oldestTimeStamp){
+								oldestTimeStamp = [t doubleValue];
+							}
+						}
+						[history removeObjectForKey:@(oldestTimeStamp)];
+						//HBLogDebug(@"***********history222: %@", history);
+						
+						//NSMutableDictionary *historyDictAtInstance = [history[@(timeStamp)] mutableCopy];
+						NSMutableDictionary *historyDictAtInstance = [history[[[history allKeys] firstObject]] mutableCopy];
+						
+						//HBLogDebug(@"***********timeStamp: %f", timeStamp);
+						
+						//HBLogDebug(@"***********historyDictAtInstance: %@", historyDictAtInstance);
+						
+						if (cpuUsageEnabled){
+							[historyDictAtInstance setObject:@([self cpuUsageForBundleIdentifier:identifier]) forKey:@"cpu"];
+						}
+						if (systemCallsType > 0 || networkTransmissionType > 0){
+							shouldDeferChecking = YES;
+							[self setTaskEventsDeltaHistoryForBundleIdentifier:identifier newHistory:history lastHistory:historyDictAtInstance withNetstat:(networkTransmissionType > 0) timeStamp:timeStamp delay:1.0];
+							continue;
+						}else{
+							history[@(timeStamp)] = historyDictAtInstance;
+							self.advancedMonitoringHistory[identifier] = history;
+						}
+						break;
+					}
+					default:
+						break;
+				}
+				if (shouldDeferChecking) return;
+			}
+			
+			
+			if (self.advancedMonitoringHistory[identifier] && [[(NSMutableDictionary *)self.advancedMonitoringHistory[identifier] allKeys] count] > 1){
+				
+				float cpuUsageThreshold = floatValueForConfigKeyWithPrefsAndIndex(@"cpuUsageThreshold", 0.5f, prefs, identifierIdx);
+				cpuUsageThreshold = cpuUsageThreshold <= 0.0f ? 0.0f : cpuUsageThreshold;
+				cpuUsageThreshold = !cpuUsageThreshold ? 0.0f : cpuUsageThreshold;
+				
+				//HBLogDebug(@"cpuUsageThreshold: %f", cpuUsageThreshold);
+				double rxbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"rxbytesThreshold", 0.0, prefs, identifierIdx);
+				double txbytesThreshold = doubleValueForConfigKeyWithPrefsAndIndex(@"txbytesThreshold", 0.0, prefs, identifierIdx);
+				int networkUnit = intValueForConfigKeyWithPrefsAndIndex(@"networkTransmissionUnit", 2, prefs, identifierIdx);
+				
+				double networkThresholdUnitDenomination = (double)pow((double)1024,(double)2);
+				switch (networkUnit) {
+					case 0:
+						networkThresholdUnitDenomination = (double)1;
+						break;
+					case 1:
+						networkThresholdUnitDenomination = (double)1024;
+						break;
+					case 2:
+						networkThresholdUnitDenomination = (double)pow((double)1024, (double)2);
+						break;
+					case 3:
+						networkThresholdUnitDenomination = (double)pow((double)1024, (double)3);
+						break;
+					default:
+						break;
+				}
+				
+				int systemCallsThreshold = intValueForConfigKeyWithPrefsAndIndex(@"systemCallsThreshold", 0, prefs, identifierIdx);
+				systemCallsThreshold = systemCallsThreshold <= 0 ? 0 : systemCallsThreshold;
+				
+				//int criteriaToBeFullfilledCount = 0;
+				//if (cpuUsageEnabled) criteriaToBeFullfilledCount++;
+				NSString *selectedSystemCallsKey = @"syscalls_total";
+				if (systemCallsType > 0){
+					//criteriaToBeFullfilledCount++;
+					
+					switch (systemCallsType) {
+						case 1:
+							selectedSystemCallsKey = @"syscalls_mach";
+							break;
+						case 2:
+							selectedSystemCallsKey = @"syscalls_unix";
+							break;
+						case 3:
+							selectedSystemCallsKey = @"syscalls_total";
+							break;
+						default:
+							break;
+					}
+				}
+				
+				NSString *selectedNetworkTransmissionType = @"rxtxbytes";
+				double networkThreshold = 0;
+				if (networkTransmissionType > 0){
+					//criteriaToBeFullfilledCount++;
+					
+					switch (networkTransmissionType) {
+						case 1:
+							selectedNetworkTransmissionType = @"rxbytes";
+							networkThreshold = rxbytesThreshold;
+							break;
+						case 2:
+							selectedNetworkTransmissionType = @"txbytes";
+							networkThreshold = txbytesThreshold;
+							break;
+						case 3:
+							selectedNetworkTransmissionType = @"rxtxbytes";
+							networkThreshold = rxbytesThreshold + txbytesThreshold;
+							break;
+						default:
+							break;
+					}
+				}
+				
+				BOOL hasFullfilledThresholdCrtiteria = YES;
+				//NSMutableArray *values = [[NSMutableArray alloc] init];
+				HBLogDebug(@"advancedMonitoringHistory %@", self.advancedMonitoringHistory);
+				
+				
+				//int criteriaFullfilledCount = 0;
+				for (NSString *timestampKey in self.advancedMonitoringHistory[identifier]){
+					//HBLogDebug(@"%@ ** rxbytesFormatted: %@", identifier, [NSByteCountFormatter stringFromByteCount:[self.advancedMonitoringHistory[identifier][timestampKey][@"rxbytes"] unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
+					HBLogDebug(@"cpuUsageEnabled: %d",cpuUsageEnabled ? 1 : 0);
+					if (cpuUsageEnabled && [self.advancedMonitoringHistory[identifier][timestampKey][@"cpu"] floatValue] > cpuUsageThreshold){
+						hasFullfilledThresholdCrtiteria = NO;
+						break;
+					}
+					HBLogDebug(@"systemCallsType: %d",systemCallsType);
+					if ((systemCallsType > 0) && [self.advancedMonitoringHistory[identifier][timestampKey][selectedSystemCallsKey] intValue] > systemCallsThreshold){
+						hasFullfilledThresholdCrtiteria = NO;
+						break;
+					}
+					
+					HBLogDebug(@"Current Speed: %lf ** Threshold: %lf", [self.advancedMonitoringHistory[identifier][timestampKey][selectedNetworkTransmissionType] doubleValue] / networkThresholdUnitDenomination , networkThreshold);
+					
+					if ((networkTransmissionType > 0) && (([self.advancedMonitoringHistory[identifier][timestampKey][selectedNetworkTransmissionType] doubleValue] / networkThresholdUnitDenomination) > networkThreshold)){
+						hasFullfilledThresholdCrtiteria = NO;
+						break;
+					}
+					
+					
+					/*
+					 if (cpuUsageEnabled && [self.advancedMonitoringHistory[identifier][timestampKey][@"cpu"] floatValue] <= cpuUsageThreshold){
+					 criteriaFullfilledCount++;
+					 }else if (cpuUsageEnabled){
+					 criteriaFullfilledCount--;
+					 }
+					 if ((systemCallsType > 0) && [self.advancedMonitoringHistory[identifier][timestampKey][selectedSystemCallsKey] intValue] <= systemCallsThreshold){
+					 criteriaFullfilledCount++;
+					 }else if (systemCallsType > 0){
+					 criteriaFullfilledCount--;
+					 }
+					 */
+					//HBLogDebug(@"criteriaFullfilledCount: %d", criteriaFullfilledCount);
+				}
+				
+				/*
+				 if ((criteriaToBeFullfilledCount*2) == criteriaFullfilledCount){
+				 hasFullfilledThresholdCrtiteria = YES;
+				 HBLogDebug(@"All criteria fullfilled");
+				 }
+				 */
+				/*
+				 //NSArray *allVal = [self.advancedMonitoringHistory[identifier][@"cpu"] allValues];
+				 BOOL hasFullfilledThresholdCrtiteria = YES;
+				 HBLogDebug(@"allVal: %@", allVal);
+				 for (id val in allVal){
+				 if ([val floatValue] > threshold){
+				 hasFullfilledThresholdCrtiteria = NO;
+				 break;
+				 }
+				 }
+				 */
+				if (hasFullfilledThresholdCrtiteria){
+					//[self invalidateQueue:identifier];
+					//[self _retireScene:identifier];
+					[toBeInvalidateQueues addObject:identifier];
+					[toBeRetiredIndentifiers addObject:identifier];
+					HBLogDebug(@"%@ fullfilled advanced monitoring criteria", identifier);
+				}
+			}
+		}
+		self.cachedNetstatOne = nil;
+		self.cachedNetstatTwo = nil;
+		
+		
+		dispatch_async(dispatch_get_main_queue(), ^ {
+			[self invalidateAllQueuesIn:toBeInvalidateQueues];
+			[self _retireAllScenesIn:toBeRetiredIndentifiers];
+			
+			
+			if (scheduledCall){
+				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+					[self monitoringUsage:nil];
+				});
+			}
+			
+			if ([self.advancedMonitoringIdentifiers count] == 0){
+				[self.advancedMonitoringTimer invalidate];
+				self.advancedMonitoringTimer = nil;
+				HBLogDebug(@"Invalidated advanced monitoring timer");
+			}else{
+				[self.advancedMonitoringTimer invalidate];
+				self.advancedMonitoringTimer = nil;
+				[self startAdvancedMonitoringWithInterval:globalTimeSpan];
+				HBLogDebug(@"%@", scheduledCall ? @"Monitoring checking in next 1 second cycle" : @"Rescheduled advanced monitoring");
+			}
+		});
+	});
 }
 
 -(void)startAdvancedMonitoringWithInterval:(double)interval{
-    if (!self.advancedMonitoringTimer){
-        self.advancedMonitoringTimer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:interval] serviceIdentifier:@"com.udevs.bakgrunnur-advanced-monitoring" target:self selector:@selector(monitoringUsage:) userInfo:@{@"scheduledCall":@YES}];
-        
-        [self.advancedMonitoringTimer setMinimumEarlyFireProportion:1];
-        
-        if ([NSThread isMainThread]) {
-            [self.advancedMonitoringTimer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
-        } else {
-            dispatch_async(dispatch_get_main_queue(), ^ {
-                [self.advancedMonitoringTimer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
-            });
-        }
-    }
+	if (!self.advancedMonitoringTimer){
+		self.advancedMonitoringTimer = [[objc_getClass("PCPersistentTimer") alloc] initWithFireDate:[[NSDate date] dateByAddingTimeInterval:interval] serviceIdentifier:@"com.udevs.bakgrunnur-advanced-monitoring" target:self selector:@selector(monitoringUsage:) userInfo:@{@"scheduledCall":@YES}];
+		
+		[self.advancedMonitoringTimer setMinimumEarlyFireProportion:1];
+		
+		if ([NSThread isMainThread]) {
+			[self.advancedMonitoringTimer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
+		} else {
+			dispatch_async(dispatch_get_main_queue(), ^ {
+				[self.advancedMonitoringTimer scheduleInRunLoop:[NSRunLoop mainRunLoop]];
+			});
+		}
+	}
 }
 
 -(BOOL)isEnabledForBundleIdentifier:(NSString *)bundleIdentifier{
-    return [enabledIdentifier containsObject:bundleIdentifier];
+	return [enabledIdentifier containsObject:bundleIdentifier];
 }
 
 -(BOOL)isEnabled{
-    return enabled;
+	return enabled;
 }
 
 -(NSArray<SBSApplicationShortcutItem*>*) stackBakgrunnurShortcut:(NSArray<SBSApplicationShortcutItem*>*)stockShortcuts bundleIdentifier:(NSString *)bundleIdentifier{
-    
-    NSMutableArray *stackedShortcuts = [stockShortcuts mutableCopy];
-    if (!stackedShortcuts) stackedShortcuts = [NSMutableArray new];
-    
-    //for (NSString *itemName in itemsList) {
-    BOOL isEnabled = [enabledIdentifier containsObject:bundleIdentifier];
-    
-    if (quickActionMaster){
-        SBSApplicationShortcutItem *item = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
-        item.localizedTitle = @"Bakgrunnur";
-        item.localizedSubtitle = isEnabled ? @"Disable" : @"Enable";
-        item.bundleIdentifierToLaunch = bundleIdentifier;
-        item.type = @"BakgrunnurShortcut";
-        item.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"hourglass"];
-        [stackedShortcuts addObject:item];
-    }
-    
-    if (!isEnabled && quickActionOnce){
-        SBSApplicationShortcutItem *itemOnce = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
-        itemOnce.localizedTitle = @"Bakgrunnur";
-        itemOnce.bundleIdentifierToLaunch = bundleIdentifier;
-        itemOnce.type = @"BakgrunnurShortcut";
-        itemOnce.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"1.circle"];
-        if ([persistenceOnce containsObject:bundleIdentifier]){
-            itemOnce.localizedSubtitle = @"Enable Once (Persistence)";
-        }else{
-            itemOnce.localizedSubtitle = @"Enable Once";
-        }
-        
-        if ([self.queuedIdentifiers containsObject:bundleIdentifier] || [self.immortalIdentifiers containsObject:bundleIdentifier] || [self.advancedMonitoringIdentifiers containsObject:bundleIdentifier]){
-            if ([persistenceOnce containsObject:bundleIdentifier]){
-                itemOnce.localizedSubtitle = @"Disable Once (Persistence)";
-            }else{
-                itemOnce.localizedSubtitle = @"Disable Once";
-            }
-        }
-        
-        [stackedShortcuts addObject:itemOnce];
-    }
-    
-    //quickPrefsItemsAboveStockItems ? [stockAndCustomItems addObject:item] : [stockAndCustomItems insertObject:item atIndex:0];
-    //}
-    return stackedShortcuts;
+	
+	NSMutableArray *stackedShortcuts = [stockShortcuts mutableCopy];
+	if (!stackedShortcuts) stackedShortcuts = [NSMutableArray new];
+	
+	//for (NSString *itemName in itemsList) {
+	BOOL isEnabled = [enabledIdentifier containsObject:bundleIdentifier];
+	
+	if (quickActionMaster){
+		SBSApplicationShortcutItem *item = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
+		item.localizedTitle = @"Bakgrunnur";
+		item.localizedSubtitle = isEnabled ? @"Disable" : @"Enable";
+		item.bundleIdentifierToLaunch = bundleIdentifier;
+		item.type = @"BakgrunnurShortcut";
+		item.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"hourglass"];
+		[stackedShortcuts addObject:item];
+	}
+	
+	if (!isEnabled && quickActionOnce){
+		SBSApplicationShortcutItem *itemOnce = [[objc_getClass("SBSApplicationShortcutItem") alloc] init];
+		itemOnce.localizedTitle = @"Bakgrunnur";
+		itemOnce.bundleIdentifierToLaunch = bundleIdentifier;
+		itemOnce.type = @"BakgrunnurShortcut";
+		itemOnce.icon = [[objc_getClass("SBSApplicationShortcutSystemPrivateIcon") alloc] initWithSystemImageName:@"1.circle"];
+		if ([persistenceOnce containsObject:bundleIdentifier]){
+			itemOnce.localizedSubtitle = @"Enable Once (Persistence)";
+		}else{
+			itemOnce.localizedSubtitle = @"Enable Once";
+		}
+		
+		if ([self.queuedIdentifiers containsObject:bundleIdentifier] || [self.immortalIdentifiers containsObject:bundleIdentifier] || [self.advancedMonitoringIdentifiers containsObject:bundleIdentifier]){
+			if ([persistenceOnce containsObject:bundleIdentifier]){
+				itemOnce.localizedSubtitle = @"Disable Once (Persistence)";
+			}else{
+				itemOnce.localizedSubtitle = @"Disable Once";
+			}
+		}
+		
+		[stackedShortcuts addObject:itemOnce];
+	}
+	
+	//quickPrefsItemsAboveStockItems ? [stockAndCustomItems addObject:item] : [stockAndCustomItems insertObject:item atIndex:0];
+	//}
+	return stackedShortcuts;
 }
 
 -(void)setObject:(NSDictionary *)objectDict bundleIdentifier:(NSString *)bundleIdentifier{
-    setConfigObject(bundleIdentifier, objectDict);
+	setConfigObject(bundleIdentifier, objectDict);
 }
 
 -(NSDictionary *)taskEventsDeltaForBundleIdentifier:(NSString *)bundleIdentifier history:(NSDictionary *)history{
-    NSDictionary *currentTaskEvents = [self taskEventsForBundleIdentifier:bundleIdentifier];
-    if (!history) return currentTaskEvents;
-    NSMutableDictionary *deltas = [[NSMutableDictionary alloc] init];
-    for (NSString *key in [history allKeys]){
-        if (!currentTaskEvents[key]) continue;
-        deltas[key] = @([currentTaskEvents[key] intValue] - [history[key] intValue]);
-    }
-    return deltas;
+	NSDictionary *currentTaskEvents = [self taskEventsForBundleIdentifier:bundleIdentifier];
+	if (!history) return currentTaskEvents;
+	NSMutableDictionary *deltas = [[NSMutableDictionary alloc] init];
+	for (NSString *key in [history allKeys]){
+		if (!currentTaskEvents[key]) continue;
+		deltas[key] = @([currentTaskEvents[key] intValue] - [history[key] intValue]);
+	}
+	return deltas;
 }
 
 
 -(NSDictionary *)taskEventsForBundleIdentifier:(NSString *)bundleIdentifier{
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_int64(message, "taskEventsForPid", [self pidForBundleIdentifier:bundleIdentifier]);
-    xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
-    return @{@"syscalls_mach":@(xpc_dictionary_get_int64(reply, "syscalls_mach")),
-             @"syscalls_unix":@(xpc_dictionary_get_int64(reply, "syscalls_unix")),
-             @"syscalls_total":@(xpc_dictionary_get_int64(reply, "syscalls_total")),
-             @"messages_sent":@(xpc_dictionary_get_int64(reply, "messages_sent")),
-             @"messages_received":@(xpc_dictionary_get_int64(reply, "messages_received")),
-             @"faults":@(xpc_dictionary_get_int64(reply, "faults")),
-             @"pageins":@(xpc_dictionary_get_int64(reply, "pageins")),
-             @"cow_faults":@(xpc_dictionary_get_int64(reply, "cow_faults"))
-    };
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_int64(message, "taskEventsForPid", [self pidForBundleIdentifier:bundleIdentifier]);
+	xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
+	return @{@"syscalls_mach":@(xpc_dictionary_get_int64(reply, "syscalls_mach")),
+			 @"syscalls_unix":@(xpc_dictionary_get_int64(reply, "syscalls_unix")),
+			 @"syscalls_total":@(xpc_dictionary_get_int64(reply, "syscalls_total")),
+			 @"messages_sent":@(xpc_dictionary_get_int64(reply, "messages_sent")),
+			 @"messages_received":@(xpc_dictionary_get_int64(reply, "messages_received")),
+			 @"faults":@(xpc_dictionary_get_int64(reply, "faults")),
+			 @"pageins":@(xpc_dictionary_get_int64(reply, "pageins")),
+			 @"cow_faults":@(xpc_dictionary_get_int64(reply, "cow_faults"))
+	};
 }
 
 /*
@@ -1147,10 +1153,10 @@
  */
 
 -(float)cpuUsageForBundleIdentifier:(NSString *)bundleIdentifier{
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_int64(message, "cpuUsageForPid", [self pidForBundleIdentifier:bundleIdentifier]);
-    xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
-    return xpc_dictionary_get_double(reply, "cpu_usage");
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_int64(message, "cpuUsageForPid", [self pidForBundleIdentifier:bundleIdentifier]);
+	xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
+	return xpc_dictionary_get_double(reply, "cpu_usage");
 }
 
 /*
@@ -1223,10 +1229,10 @@
  */
 
 -(int)threadsCountForBundleIdentifier:(NSString *)bundleIdentifier{
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_int64(message, "threadsCountForPid", [self pidForBundleIdentifier:bundleIdentifier]);
-    xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
-    return xpc_dictionary_get_int64(reply, "threads_count");
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_int64(message, "threadsCountForPid", [self pidForBundleIdentifier:bundleIdentifier]);
+	xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
+	return xpc_dictionary_get_int64(reply, "threads_count");
 }
 
 /*
@@ -1251,13 +1257,13 @@
  */
 
 -(void)createXPCConnection{
-    self.bkgd_xpc_connection =
-    xpc_connection_create_mach_service("com.udevs.bkgd", NULL, 0);
-    xpc_connection_set_event_handler(self.bkgd_xpc_connection, ^(xpc_object_t event) {
-        // Same semantics as a connection created through
-        // xpc_connection_create().
-    });
-    xpc_connection_resume(self.bkgd_xpc_connection);
+	self.bkgd_xpc_connection =
+	xpc_connection_create_mach_service("com.udevs.bkgd", NULL, 0);
+	xpc_connection_set_event_handler(self.bkgd_xpc_connection, ^(xpc_object_t event) {
+		// Same semantics as a connection created through
+		// xpc_connection_create().
+	});
+	xpc_connection_resume(self.bkgd_xpc_connection);
 }
 
 /*
@@ -1285,50 +1291,50 @@
  */
 
 -(BOOL)sendMessageWithBoolReplyXPC:(xpc_object_t)message{
-    BOOL ret = NO;
-    if (self.bkgd_xpc_connection){
-        xpc_object_t reply = xpc_connection_send_message_with_reply_sync(self.bkgd_xpc_connection, message);
-        if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY){
-            ret = xpc_dictionary_get_bool(reply, "result");
-        }
-        //xpc_release(reply);
-    }
-    return ret;
+	BOOL ret = NO;
+	if (self.bkgd_xpc_connection){
+		xpc_object_t reply = xpc_connection_send_message_with_reply_sync(self.bkgd_xpc_connection, message);
+		if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY){
+			ret = xpc_dictionary_get_bool(reply, "result");
+		}
+		//xpc_release(reply);
+	}
+	return ret;
 }
 
 -(xpc_object_t)sendMessageWithObjectReplyXPC:(xpc_object_t)message{
-    //xpc_object_t ret = xpc_dictionary_create(NULL, NULL, 0);
-    if (self.bkgd_xpc_connection){
-        xpc_object_t reply = xpc_connection_send_message_with_reply_sync(self.bkgd_xpc_connection, message);
-        /*
-         HBLogDebug(@"reply type: %@", xpc_get_type(reply));
-         if (xpc_get_type(reply) == XPC_TYPE_ERROR){
-         HBLogDebug(@"reply error: %s", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
-         
-         }
-         */
-        if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY){
-            xpc_object_t result = xpc_dictionary_get_value(reply, "result");
-            //HBLogDebug(@"syscalls_mach %llu", xpc_dictionary_get_uint64(result, "syscalls_mach"));
-            
-            return result;
-        }
-        //xpc_release(reply);
-    }
-    return xpc_dictionary_create(NULL, NULL, 0);
+	//xpc_object_t ret = xpc_dictionary_create(NULL, NULL, 0);
+	if (self.bkgd_xpc_connection){
+		xpc_object_t reply = xpc_connection_send_message_with_reply_sync(self.bkgd_xpc_connection, message);
+		/*
+		 HBLogDebug(@"reply type: %@", xpc_get_type(reply));
+		 if (xpc_get_type(reply) == XPC_TYPE_ERROR){
+		 HBLogDebug(@"reply error: %s", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
+		 
+		 }
+		 */
+		if (xpc_get_type(reply) == XPC_TYPE_DICTIONARY){
+			xpc_object_t result = xpc_dictionary_get_value(reply, "result");
+			//HBLogDebug(@"syscalls_mach %llu", xpc_dictionary_get_uint64(result, "syscalls_mach"));
+			
+			return result;
+		}
+		//xpc_release(reply);
+	}
+	return xpc_dictionary_create(NULL, NULL, 0);
 }
 
 -(void)notifySleepingState:(BOOL)sleep{
-    HBLogDebug(@"Will notify to %@", sleep?@"be able to sleep again":@"standy system");
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_bool(message, "updateSleepingState", sleep);
-    [self sendMessageWithBoolReplyXPC:message];
+	HBLogDebug(@"Will notify to %@", sleep ? @"be able to sleep again" : @"standy system");
+	
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_bool(message, "updateSleepingState", sleep);
+	[self sendMessageWithBoolReplyXPC:message];
 }
 
 /*
  -(void)notifySleepingState:(BOOL)sleep{
- HBLogDebug(@"Will notify to %@", sleep?@"be able to sleep again":@"standy system");
+ HBLogDebug(@"Will notify to %@", sleep ? @"be able to sleep again" : @"standy system");
  
  xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
  xpc_dictionary_set_bool(message, "BAKGRUNNUR_updateSleepingState", sleep);
@@ -1338,209 +1344,209 @@
 
 
 -(NSDictionary *)netstatForBundleIdentifiers:(NSArray *)identifiers{
-    if (!identifiers) return nil;
-    NSMutableDictionary *stats = [NSMutableDictionary dictionary];
-    xpc_object_t pids = xpc_array_create(NULL, 0);
-    NSMutableDictionary *pidsByIdentifier = [NSMutableDictionary dictionary];
-    for (NSString *bundleIdentifier in identifiers){
-        int pid = [self pidForBundleIdentifier:bundleIdentifier];
-        xpc_array_set_uint64(pids, ((size_t)(-1)), (uint64_t)pid);
-        pidsByIdentifier[bundleIdentifier] = @(pid);
-    }
-    
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_value(message, "netstatForPids", pids);
-    xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
-    
-    NSUInteger idx = 0;
-    for (NSNumber *pid in [pidsByIdentifier allValues]){
-        __block NSMutableArray *activeConnectionsArray = [NSMutableArray array];
-        xpc_object_t activeConnections = xpc_dictionary_get_value(reply, [[pid stringValue] UTF8String]);
-        if (activeConnections && xpc_get_type(activeConnections) == XPC_TYPE_ARRAY){
-            xpc_array_apply(activeConnections, ^_Bool(size_t index, xpc_object_t value) {
-                
-                NSDictionary *stat = @{@"rxbytes":@(xpc_dictionary_get_uint64(value, "rxbytes")),
-                                       @"txbytes":@(xpc_dictionary_get_uint64(value, "txbytes")),
-                                       @"rhiwat":@(xpc_dictionary_get_uint64(value, "rhiwat")),
-                                       @"shiwat":@(xpc_dictionary_get_uint64(value, "shiwat")),
-                                       @"send_q":@(xpc_dictionary_get_uint64(value, "send_q")),
-                                       @"recv_q":@(xpc_dictionary_get_uint64(value, "recv_q")),
-                                       @"epid":@(xpc_dictionary_get_uint64(value, "epid")),
-                                       @"proto":[NSString stringWithCString:xpc_dictionary_get_string(value, "proto") encoding:NSUTF8StringEncoding],
-                                       @"foreign_addr":[NSString stringWithCString:xpc_dictionary_get_string(value, "foreign_addr") encoding:NSUTF8StringEncoding],
-                                       @"local_addr":[NSString stringWithCString:xpc_dictionary_get_string(value, "local_addr") encoding:NSUTF8StringEncoding],
-                                       @"state":[NSString stringWithCString:xpc_dictionary_get_string(value, "state") encoding:NSUTF8StringEncoding]
-                };
-                [activeConnectionsArray addObject:stat];
-                return YES;
-            });
-            
-        }
-        stats[[pidsByIdentifier allKeys][idx]] = activeConnectionsArray;
-        idx++;
-    }
-    return stats;
+	if (!identifiers) return nil;
+	NSMutableDictionary *stats = [NSMutableDictionary dictionary];
+	xpc_object_t pids = xpc_array_create(NULL, 0);
+	NSMutableDictionary *pidsByIdentifier = [NSMutableDictionary dictionary];
+	for (NSString *bundleIdentifier in identifiers){
+		int pid = [self pidForBundleIdentifier:bundleIdentifier];
+		xpc_array_set_uint64(pids, ((size_t)(-1)), (uint64_t)pid);
+		pidsByIdentifier[bundleIdentifier] = @(pid);
+	}
+	
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_value(message, "netstatForPids", pids);
+	xpc_object_t reply = [self sendMessageWithObjectReplyXPC:message];
+	
+	NSUInteger idx = 0;
+	for (NSNumber *pid in [pidsByIdentifier allValues]){
+		__block NSMutableArray *activeConnectionsArray = [NSMutableArray array];
+		xpc_object_t activeConnections = xpc_dictionary_get_value(reply, [[pid stringValue] UTF8String]);
+		if (activeConnections && xpc_get_type(activeConnections) == XPC_TYPE_ARRAY){
+			xpc_array_apply(activeConnections, ^_Bool(size_t index, xpc_object_t value) {
+				
+				NSDictionary *stat = @{@"rxbytes":@(xpc_dictionary_get_uint64(value, "rxbytes")),
+									   @"txbytes":@(xpc_dictionary_get_uint64(value, "txbytes")),
+									   @"rhiwat":@(xpc_dictionary_get_uint64(value, "rhiwat")),
+									   @"shiwat":@(xpc_dictionary_get_uint64(value, "shiwat")),
+									   @"send_q":@(xpc_dictionary_get_uint64(value, "send_q")),
+									   @"recv_q":@(xpc_dictionary_get_uint64(value, "recv_q")),
+									   @"epid":@(xpc_dictionary_get_uint64(value, "epid")),
+									   @"proto":[NSString stringWithCString:xpc_dictionary_get_string(value, "proto") encoding:NSUTF8StringEncoding],
+									   @"foreign_addr":[NSString stringWithCString:xpc_dictionary_get_string(value, "foreign_addr") encoding:NSUTF8StringEncoding],
+									   @"local_addr":[NSString stringWithCString:xpc_dictionary_get_string(value, "local_addr") encoding:NSUTF8StringEncoding],
+									   @"state":[NSString stringWithCString:xpc_dictionary_get_string(value, "state") encoding:NSUTF8StringEncoding]
+				};
+				[activeConnectionsArray addObject:stat];
+				return YES;
+			});
+			
+		}
+		stats[[pidsByIdentifier allKeys][idx]] = activeConnectionsArray;
+		idx++;
+	}
+	return stats;
 }
 
 -(void)netstatForBundleIdentifiers:(NSArray *)identifiers completion:(void (^)(NSDictionary *result))completionHandler{
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        if (!identifiers && completionHandler){
-            completionHandler(nil);
-        }else{
-            if (completionHandler){
-                completionHandler([self netstatForBundleIdentifiers:identifiers]);
-            }
-        }
-    });
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		if (!identifiers && completionHandler){
+			completionHandler(nil);
+		}else{
+			if (completionHandler){
+				completionHandler([self netstatForBundleIdentifiers:identifiers]);
+			}
+		}
+	});
 }
 
 -(NSDictionary *)rxbytesForBundleIdentifiers:(NSArray *)bundleIdentifiers stats:(NSDictionary *)stats{
-    NSMutableDictionary *rxbytesResult = [NSMutableDictionary dictionary];
-    for (NSString *bundleIdentifier in stats){
-        NSArray *rxbytesESTABLISHED = [stats[bundleIdentifier] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(state == %@)", @"ESTABLISHED"]];
-        NSNumber *rxbytesTotal = [[rxbytesESTABLISHED valueForKey:@"rxbytes"] valueForKeyPath:@"@sum.self"];
-        rxbytesResult[bundleIdentifier] = rxbytesTotal;
-        //HBLogDebug(@"%@ ** rxbytesFormatted: %@", bundleIdentifier, [NSByteCountFormatter stringFromByteCount:[rxbytesTotal unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
-    }
-    return rxbytesResult;
+	NSMutableDictionary *rxbytesResult = [NSMutableDictionary dictionary];
+	for (NSString *bundleIdentifier in stats){
+		NSArray *rxbytesESTABLISHED = [stats[bundleIdentifier] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(state == %@)", @"ESTABLISHED"]];
+		NSNumber *rxbytesTotal = [[rxbytesESTABLISHED valueForKey:@"rxbytes"] valueForKeyPath:@"@sum.self"];
+		rxbytesResult[bundleIdentifier] = rxbytesTotal;
+		//HBLogDebug(@"%@ ** rxbytesFormatted: %@", bundleIdentifier, [NSByteCountFormatter stringFromByteCount:[rxbytesTotal unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
+	}
+	return rxbytesResult;
 }
 
 -(void)rxbytesForBundleIdentifiers:(NSArray *)bundleIdentifiers stats:(NSDictionary *)stats completion:(void (^)(NSDictionary *result))completionHandler{
-    if (!stats){
-        [self netstatForBundleIdentifiers:bundleIdentifiers completion:^(NSDictionary *statsResult){
-            if (completionHandler){
-                completionHandler([self rxbytesForBundleIdentifiers:bundleIdentifiers stats:statsResult]);
-            }
-        }];
-    }else{
-        if (completionHandler){
-            completionHandler([self rxbytesForBundleIdentifiers:bundleIdentifiers stats:stats]);
-        }
-    }
+	if (!stats){
+		[self netstatForBundleIdentifiers:bundleIdentifiers completion:^(NSDictionary *statsResult){
+			if (completionHandler){
+				completionHandler([self rxbytesForBundleIdentifiers:bundleIdentifiers stats:statsResult]);
+			}
+		}];
+	}else{
+		if (completionHandler){
+			completionHandler([self rxbytesForBundleIdentifiers:bundleIdentifiers stats:stats]);
+		}
+	}
 }
 
 -(void)netStatDeltaForBundleIdentifiers:(NSArray *)bundleIdentifiers history:(NSDictionary *)histories cachedStats:(NSDictionary *)cachedStats completion:(void (^)(NSDictionary *deltas, NSDictionary *fullStats))completionHandler{
-    
-    __block NSMutableDictionary *deltas = [[NSMutableDictionary alloc] init];
-    
-    [self netstatForBundleIdentifiers:(cachedStats?nil:bundleIdentifiers) completion:^(NSDictionary *stats){
-        
-        if (cachedStats){
-            stats = cachedStats;
-        }
-        
-        [self rxbytesForBundleIdentifiers:bundleIdentifiers stats:stats completion:^(NSDictionary *rxbytesStats){
-            
-            for (NSString *bundleIdentifier in bundleIdentifiers){
-                NSNumber *rxStats = rxbytesStats[bundleIdentifier];
-                NSDictionary *history = histories[bundleIdentifier];
-                //HBLogDebug(@"HISTORY: %@", history);
-                NSMutableDictionary *delta = deltas[bundleIdentifier] ?: [NSMutableDictionary dictionary];
-                if (rxStats && history){
-                    delta[@"rxbytes"] = @(([rxStats unsignedLongLongValue] > [history[@"rxbytes"] unsignedLongLongValue] ? [rxStats unsignedLongLongValue] - [history[@"rxbytes"] unsignedLongLongValue] : 0));
-                    HBLogDebug(@"delta: %@ rxStats - history: %llu - %llu", delta[@"rxbytes"], [rxStats unsignedLongLongValue], [history[@"rxbytes"] unsignedLongLongValue]);
-                }else{
-                    delta[@"rxbytes"] = rxStats?:@0;
-                }
-                //HBLogDebug(@"rx-delta: %@", delta);
-                [deltas setObject:delta forKey:bundleIdentifier];
-            }
-            
-            [self txbytesForBundleIdentifiers:bundleIdentifiers stats:stats completion:^(NSDictionary *txbytesStats){
-                
-                for (NSString *bundleIdentifier in bundleIdentifiers){
-                    NSNumber *txStats = txbytesStats[bundleIdentifier];
-                    NSDictionary *history = histories[bundleIdentifier];
-                    NSMutableDictionary *delta = deltas[bundleIdentifier] ?: [NSMutableDictionary dictionary];
-                    if (txStats && history){
-                        delta[@"txbytes"] = @(([txStats unsignedLongLongValue] > [history[@"txbytes"] unsignedLongLongValue] ? [txStats unsignedLongLongValue] - [history[@"txbytes"] unsignedLongLongValue] : 0));
-                    }else{
-                        delta[@"txbytes"] = txStats?:@0;
-                    }
-                    //HBLogDebug(@"tx-delta: %@", delta);
-                    [deltas setObject:delta forKey:bundleIdentifier];
-                }
-                
-                if (completionHandler){
-                    completionHandler(deltas, stats);
-                }
-            }];
-            
-        }];
-    }];
+	
+	__block NSMutableDictionary *deltas = [[NSMutableDictionary alloc] init];
+	
+	[self netstatForBundleIdentifiers:(cachedStats ? nil : bundleIdentifiers) completion:^(NSDictionary *stats){
+		
+		if (cachedStats){
+			stats = cachedStats;
+		}
+		
+		[self rxbytesForBundleIdentifiers:bundleIdentifiers stats:stats completion:^(NSDictionary *rxbytesStats){
+			
+			for (NSString *bundleIdentifier in bundleIdentifiers){
+				NSNumber *rxStats = rxbytesStats[bundleIdentifier];
+				NSDictionary *history = histories[bundleIdentifier];
+				//HBLogDebug(@"HISTORY: %@", history);
+				NSMutableDictionary *delta = deltas[bundleIdentifier] ?: [NSMutableDictionary dictionary];
+				if (rxStats && history){
+					delta[@"rxbytes"] = @(([rxStats unsignedLongLongValue] > [history[@"rxbytes"] unsignedLongLongValue] ? [rxStats unsignedLongLongValue] - [history[@"rxbytes"] unsignedLongLongValue] : 0));
+					HBLogDebug(@"delta: %@ rxStats - history: %llu - %llu", delta[@"rxbytes"], [rxStats unsignedLongLongValue], [history[@"rxbytes"] unsignedLongLongValue]);
+				}else{
+					delta[@"rxbytes"] = rxStats ?: @0;
+				}
+				//HBLogDebug(@"rx-delta: %@", delta);
+				[deltas setObject:delta forKey:bundleIdentifier];
+			}
+			
+			[self txbytesForBundleIdentifiers:bundleIdentifiers stats:stats completion:^(NSDictionary *txbytesStats){
+				
+				for (NSString *bundleIdentifier in bundleIdentifiers){
+					NSNumber *txStats = txbytesStats[bundleIdentifier];
+					NSDictionary *history = histories[bundleIdentifier];
+					NSMutableDictionary *delta = deltas[bundleIdentifier] ?: [NSMutableDictionary dictionary];
+					if (txStats && history){
+						delta[@"txbytes"] = @(([txStats unsignedLongLongValue] > [history[@"txbytes"] unsignedLongLongValue] ? [txStats unsignedLongLongValue] - [history[@"txbytes"] unsignedLongLongValue] : 0));
+					}else{
+						delta[@"txbytes"] = txStats ?: @0;
+					}
+					//HBLogDebug(@"tx-delta: %@", delta);
+					[deltas setObject:delta forKey:bundleIdentifier];
+				}
+				
+				if (completionHandler){
+					completionHandler(deltas, stats);
+				}
+			}];
+			
+		}];
+	}];
 }
 
 
 -(NSDictionary *)txbytesForBundleIdentifiers:(NSArray *)bundleIdentifiers stats:(NSDictionary *)stats{
-    NSMutableDictionary *txbytesResult = [NSMutableDictionary dictionary];
-    for (NSString *bundleIdentifier in stats){
-        NSArray *txbytesESTABLISHED = [stats[bundleIdentifier] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(state == %@)", @"ESTABLISHED"]];
-        NSNumber *txbytesTotal = [[txbytesESTABLISHED valueForKey:@"txbytes"] valueForKeyPath:@"@sum.self"];
-        txbytesResult[bundleIdentifier] = txbytesTotal;
-        //HBLogDebug(@"%@ ** txbytesFormatted: %@", bundleIdentifier, [NSByteCountFormatter stringFromByteCount:[txbytesTotal unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
-    }
-    
-    return txbytesResult;
+	NSMutableDictionary *txbytesResult = [NSMutableDictionary dictionary];
+	for (NSString *bundleIdentifier in stats){
+		NSArray *txbytesESTABLISHED = [stats[bundleIdentifier] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(state == %@)", @"ESTABLISHED"]];
+		NSNumber *txbytesTotal = [[txbytesESTABLISHED valueForKey:@"txbytes"] valueForKeyPath:@"@sum.self"];
+		txbytesResult[bundleIdentifier] = txbytesTotal;
+		//HBLogDebug(@"%@ ** txbytesFormatted: %@", bundleIdentifier, [NSByteCountFormatter stringFromByteCount:[txbytesTotal unsignedLongLongValue] countStyle:NSByteCountFormatterCountStyleFile]);
+	}
+	
+	return txbytesResult;
 }
 
 -(void)txbytesForBundleIdentifiers:(NSArray *)bundleIdentifiers stats:(NSDictionary *)stats  completion:(void (^)(NSDictionary *result))completionHandler{
-    if (!stats){
-        [self netstatForBundleIdentifiers:bundleIdentifiers completion:^(NSDictionary *statsResult){
-            if (completionHandler){
-                completionHandler([self txbytesForBundleIdentifiers:bundleIdentifiers stats:statsResult]);
-            }
-        }];
-    }else{
-        if (completionHandler){
-            completionHandler([self txbytesForBundleIdentifiers:bundleIdentifiers stats:stats]);
-        }
-    }
+	if (!stats){
+		[self netstatForBundleIdentifiers:bundleIdentifiers completion:^(NSDictionary *statsResult){
+			if (completionHandler){
+				completionHandler([self txbytesForBundleIdentifiers:bundleIdentifiers stats:statsResult]);
+			}
+		}];
+	}else{
+		if (completionHandler){
+			completionHandler([self txbytesForBundleIdentifiers:bundleIdentifiers stats:stats]);
+		}
+	}
 }
 
 -(void)launchBundleIdentifier:(NSString *)bundleID trusted:(BOOL)trusted suspended:(BOOL)suspend withPayloadURL:(NSString *)payloadURL completion:(void (^)(NSError *error))completionHandler{
-    
-    NSMutableDictionary *opts = [[NSMutableDictionary alloc] init];
-    opts[@"__PayloadOptions"] = @{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"};
-    //if (suspend){
-    opts[@"__ActivateSuspended"] = @(suspend);
-    opts[@"__PromptUnlockDevice"] = @YES;
-    opts[@"__UnlockDevice"] = @YES;
-    opts[@"processLaunchIntent"] = @4;
-    //}
-    if (suspend){
-        opts[@"__SBWorkspaceOpenOptionUnlockResult"] = @1;
-    }
-    if (payloadURL) opts[@"__PayloadURL"] = payloadURL;
-    
-    FBProcessManager *fbAppProcManager = [objc_getClass("FBProcessManager") sharedInstance];
-    
-    FBApplicationProcess *sbFBAppProc  = [[fbAppProcManager applicationProcessesForBundleIdentifier:@"com.apple.springboard"] firstObject];
-    
-    FBSystemServiceOpenApplicationRequest *fbOpenAppRequest = [objc_getClass("FBSystemServiceOpenApplicationRequest") request];
-    [fbOpenAppRequest setClientProcess:sbFBAppProc];
-    [fbOpenAppRequest setTrusted:trusted];
-    [fbOpenAppRequest setBundleIdentifier:bundleID];
-    
-    FBSOpenApplicationOptions *fbOpenAppOpts = [objc_getClass("FBSOpenApplicationOptions") optionsWithDictionary:opts];
-    [fbOpenAppRequest setOptions:fbOpenAppOpts];
-    
-    FBSystemService *sysService = [objc_getClass("FBSystemService") sharedInstance];
-    SBMainWorkspace *sbMainWS = [objc_getClass("SBMainWorkspace") sharedInstance];
-    
-    
-    [sbMainWS systemService:sysService handleOpenApplicationRequest:fbOpenAppRequest withCompletion:^(NSError *error){
-        if (completionHandler){
-            completionHandler(error);
-        }
-        
-    }];
-    
-    //SUSPENDED
-    //NSDictionary *opts = @{@"LSOpenSensitiveURLOption":@YES, @"__LaunchOrigin":@"CCUIAppLaunchOriginControlCenter", @"__PayloadOptions":@{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"}, @"__PayloadURL":@"spotify:", @"__PromptUnlockDevice":@YES, @"__UnlockDevice":@YES, @"__ActivateSuspended":@NO};
-    
-    //FOREGROUND
-    //NSDictionary *opts = @{@"LSOpenSensitiveURLOption":@1, @"__LaunchOrigin":@"CCUIAppLaunchOriginControlCenter", @"__PayloadOptions":@{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"}, @"__PayloadURL":@"spotify://",@"__SBWorkspaceOpenOptionUnlockResult":@1, @"__LaunchEnvironment":@"secureOnLockScreen"};
-    
+	
+	NSMutableDictionary *opts = [[NSMutableDictionary alloc] init];
+	opts[@"__PayloadOptions"] = @{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"};
+	//if (suspend){
+	opts[@"__ActivateSuspended"] = @(suspend);
+	opts[@"__PromptUnlockDevice"] = @YES;
+	opts[@"__UnlockDevice"] = @YES;
+	opts[@"processLaunchIntent"] = @4;
+	//}
+	if (suspend){
+		opts[@"__SBWorkspaceOpenOptionUnlockResult"] = @1;
+	}
+	if (payloadURL) opts[@"__PayloadURL"] = payloadURL;
+	
+	FBProcessManager *fbAppProcManager = [objc_getClass("FBProcessManager") sharedInstance];
+	
+	FBApplicationProcess *sbFBAppProc  = [[fbAppProcManager applicationProcessesForBundleIdentifier:@"com.apple.springboard"] firstObject];
+	
+	FBSystemServiceOpenApplicationRequest *fbOpenAppRequest = [objc_getClass("FBSystemServiceOpenApplicationRequest") request];
+	[fbOpenAppRequest setClientProcess:sbFBAppProc];
+	[fbOpenAppRequest setTrusted:trusted];
+	[fbOpenAppRequest setBundleIdentifier:bundleID];
+	
+	FBSOpenApplicationOptions *fbOpenAppOpts = [objc_getClass("FBSOpenApplicationOptions") optionsWithDictionary:opts];
+	[fbOpenAppRequest setOptions:fbOpenAppOpts];
+	
+	FBSystemService *sysService = [objc_getClass("FBSystemService") sharedInstance];
+	SBMainWorkspace *sbMainWS = [objc_getClass("SBMainWorkspace") sharedInstance];
+	
+	
+	[sbMainWS systemService:sysService handleOpenApplicationRequest:fbOpenAppRequest withCompletion:^(NSError *error){
+		if (completionHandler){
+			completionHandler(error);
+		}
+		
+	}];
+	
+	//SUSPENDED
+	//NSDictionary *opts = @{@"LSOpenSensitiveURLOption":@YES, @"__LaunchOrigin":@"CCUIAppLaunchOriginControlCenter", @"__PayloadOptions":@{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"}, @"__PayloadURL":@"spotify:", @"__PromptUnlockDevice":@YES, @"__UnlockDevice":@YES, @"__ActivateSuspended":@NO};
+	
+	//FOREGROUND
+	//NSDictionary *opts = @{@"LSOpenSensitiveURLOption":@1, @"__LaunchOrigin":@"CCUIAppLaunchOriginControlCenter", @"__PayloadOptions":@{@"UIApplicationLaunchOptionsSourceApplicationKey":@"com.apple.springboard"}, @"__PayloadURL":@"spotify://",@"__SBWorkspaceOpenOptionUnlockResult":@1, @"__LaunchEnvironment":@"secureOnLockScreen"};
+	
 }
 
 @end

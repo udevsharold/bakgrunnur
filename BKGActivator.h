@@ -1,4 +1,4 @@
-#include "libactivator/libactivator.h"
+#import "libactivator/libactivator.h"
 
 @interface BKGActivator : NSObject <LAListener>
 @property(nonatomic, assign) NSInteger iconScale;

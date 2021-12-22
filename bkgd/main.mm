@@ -1,6 +1,6 @@
 #import "../common.h"
-#include <stdio.h>
-#include <mach/mach.h>
+#import <stdio.h>
+#import <mach/mach.h>
 #import "BKGDaemon.h"
 
 static void handleXPCObject(xpc_object_t object) {

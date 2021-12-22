@@ -1,5 +1,5 @@
 #import "common.h"
-#import "SpringBoard.h"
+#import "PrivateHeaders.h"
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import "BKGBakgrunnur.h"

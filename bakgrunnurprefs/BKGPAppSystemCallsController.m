@@ -1,10 +1,10 @@
 #import "../common.h"
 #import "../BKGShared.h"
-#import "BakgrunnurAppEntryController.h"
-#import "BakgrunnurAppSystemCallsController.h"
+#import "BKGPAppEntryController.h"
+#import "BKGPAppSystemCallsController.h"
 #import "NSString+Regex.h"
 
-@implementation BakgrunnurAppSystemCallsController
+@implementation BKGPAppSystemCallsController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];
@@ -77,7 +77,7 @@ static void refreshSpecifiers() {
 -(void)updateParentViewController{
     UIViewController *parentController = (UIViewController *)[self valueForKey:@"_parentController"];
     if ([parentController respondsToSelector:@selector(updateParentViewController)]){
-        [(BakgrunnurAppEntryController *)parentController updateParentViewController];
+        [(BKGPAppEntryController *)parentController updateParentViewController];
     }
 }
 

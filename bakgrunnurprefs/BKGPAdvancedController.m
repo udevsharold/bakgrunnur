@@ -1,8 +1,8 @@
 #import "../common.h"
 #import "../BKGShared.h"
-#import "BakgrunnutAdvancedController.h"
+#import "BKGPAdvancedController.h"
 
-@implementation BakgrunnutAdvancedController
+@implementation BKGPAdvancedController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];

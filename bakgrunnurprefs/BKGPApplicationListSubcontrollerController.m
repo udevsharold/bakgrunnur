@@ -1,12 +1,7 @@
-//  Copyright (c) 2021 udevs
-//
-//  This file is subject to the terms and conditions defined in
-//  file 'LICENSE', which is part of this source code package.
-
-#import "BakgrunnurApplicationListSubcontrollerController.h"
+#import "BKGPApplicationListSubcontrollerController.h"
 #import "../BKGShared.h"
 
-@implementation BakgrunnurApplicationListSubcontrollerController
+@implementation BKGPApplicationListSubcontrollerController
 
 static void refreshSpecifiers() {
 	[[NSNotificationCenter defaultCenter] postNotificationName:RELOAD_SPECIFIERS_LOCAL_NOTIFICATION_NAME object:nil];
@@ -31,9 +26,7 @@ static void refreshSpecifiers() {
 }
 
 -(void)updateIvars{
-    NSString *path = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", BAKGRUNNUR_IDENTIFIER];
-    _prefs = [NSMutableDictionary dictionary];
-    [_prefs addEntriesFromDictionary:[NSDictionary dictionaryWithContentsOfFile:path]];
+    _prefs = [getPrefs() ?: @{} mutableCopy];
     _allEntriesIdentifier = [self getAllEntries:@"enabledIdentifier" keyIdentifier:@"identifier"];
 }
 
