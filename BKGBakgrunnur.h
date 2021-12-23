@@ -57,4 +57,6 @@
 //-(BOOL)invalidateAssertionForBundle:(NSString *)identifier;
 //-(void)setTaskState:(RBSTaskState)rbsState forBundle:(NSString *)identifier;
 -(NSString *)formattedExpiration:(double)seconds;
+-(void)throttleBundles:(NSArray <NSString *> *)bundleIdentifiers percentages:(NSArray <NSNumber *> *)percentages; //nil percentages for restore all
+-(void)throttleBundle:(NSString *)bundleIdentifier percentage:(int)percentage;
 @end

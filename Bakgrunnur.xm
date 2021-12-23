@@ -38,7 +38,7 @@ static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
 		BKGBakgrunnur *bakgrunnur = [BKGBakgrunnur sharedInstance];
 		if ([enabledIdentifier
 			 containsObject:bundleIdentifier] || [bakgrunnur.grantedOnceIdentifiers containsObject:bundleIdentifier]){
-			//NSUInteger identifierIdx = [enabledIdentifier indexOfObject:bundleIdentifier];
+			NSUInteger identifierIdx = [enabledIdentifier indexOfObject:bundleIdentifier];
 			//BOOL isImmortal = (identifierIdx != NSNotFound && prefs[@"enabledIdentifier"][identifierIdx][@"retire"]) ? ([prefs[@"enabledIdentifier"][identifierIdx][@"retire"] intValue] > 1) : NO;
 			//if (isImmortal){
 			//[[BKGBakgrunnur sharedInstance].immortalIdentifiers removeObject:bundleIdentifier];
@@ -51,8 +51,11 @@ static void sceneMovedToForeground(FBScene *scene, void (^completion)()){
 			[bakgrunnur invalidateQueue:bundleIdentifier];
 			
 			
-			BOOL aggressiveAssertion = boolValueForConfigKeyWithPrefs(bundleIdentifier, @"aggressiveAssertion", YES, prefs);
+			BOOL aggressiveAssertion = boolValueForConfigKeyWithPrefsAndIndex(@"aggressiveAssertion", YES, prefs, identifierIdx);
+			BOOL cpuThrottleEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuThrottleEnabled", NO, prefs, identifierIdx);
+			int throttlePecentage = intValueForConfigKeyWithPrefsAndIndex(@"throttlePercentage", 80, prefs, identifierIdx);
 			[bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
+			if (cpuThrottleEnabled && throttlePecentage > 0) [bakgrunnur throttleBundle:bundleIdentifier percentage:0];
 			
 			HBLogDebug(@"Reset expiration for %@", bundleIdentifier);
 		}
@@ -167,6 +170,10 @@ static void sceneMovedToBackground(FBScene *scene, void (^completion)()){
 				}];
 			}
 			
+			BOOL cpuThrottleEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuThrottleEnabled", NO, prefs, identifierIdx);
+			int throttlePecentage = intValueForConfigKeyWithPrefsAndIndex(@"throttlePercentage", 80, prefs, identifierIdx);
+			if (cpuThrottleEnabled && throttlePecentage > 0) [bakgrunnur throttleBundle:bundleIdentifier percentage:throttlePecentage];
+			
 			if (enabledAppNotifications){
 				[[%c(UNSUserNotificationServer) sharedInstance] _didChangeApplicationState:4 forBundleIdentifier:bundleIdentifier];
 			}
@@ -246,7 +253,10 @@ static void applySceneWithSettings(FBScene *scene, UIMutableApplicationSceneSett
 					
 					if (isiOS14 && !revokedOnceToken){
 						BOOL aggressiveAssertion = boolValueForConfigKeyWithPrefsAndIndex(@"aggressiveAssertion", YES, prefs, identifierIdx);
+						BOOL cpuThrottleEnabled = boolValueForConfigKeyWithPrefsAndIndex(@"cpuThrottleEnabled", NO, prefs, identifierIdx);
+						int throttlePecentage = intValueForConfigKeyWithPrefsAndIndex(@"throttlePercentage", 80, prefs, identifierIdx);
 						[bakgrunnur acquireAssertionIfNecessary:scene aggressive:aggressiveAssertion];
+						if (cpuThrottleEnabled && throttlePecentage > 0) [bakgrunnur throttleBundle:bundleIdentifier percentage:0];
 					}
 					HBLogDebug(@"Reset expiration for %@", frontMostAppID);
 				}else if (!isUILocked && !isFrontMost){
@@ -674,6 +684,8 @@ static NSArray *getAllEntries(NSString *keyName, NSString *keyIdentifier){
 }
 
 static void reloadPrefs(){
+	
+	NSDictionary *prevPrefs = prefs.copy;
 	prefs = getPrefs();
 	
 	enabled = boolValueForKeyWithPrefs(@"enabled", YES, prefs);
@@ -699,7 +711,20 @@ static void reloadPrefs(){
 					[reallyDisabledIdentifier addObject:queuedIdentifier];
 				}
 			}
+			HBLogDebug(@"reallyDisabledIdentifier: %@", reallyDisabledIdentifier);
 			[bakgrunnur invalidateAllQueuesIn:reallyDisabledIdentifier];
+			
+			for (NSString *enIdentifier in enabledIdentifier){
+				BOOL cpuThrottleEnabled = boolValueForConfigKeyWithPrefs(enIdentifier, @"cpuThrottleEnabled", NO, prefs);
+				BOOL prevCpuThrottleEnabled = boolValueForConfigKeyWithPrefs(enIdentifier, @"cpuThrottleEnabled", NO, prevPrefs);
+				int throttlePercentage = intValueForConfigKeyWithPrefs(enIdentifier, @"throttlePercentage", 80, prefs);
+				int prevThrottlePercentage = intValueForConfigKeyWithPrefs(enIdentifier, @"throttlePercentage", 80, prevPrefs);
+				if ((cpuThrottleEnabled && !prevCpuThrottleEnabled) || (cpuThrottleEnabled && (throttlePercentage != prevThrottlePercentage))){
+					[bakgrunnur throttleBundle:enIdentifier percentage:throttlePercentage];
+				}else if (!cpuThrottleEnabled && prevCpuThrottleEnabled){
+					[bakgrunnur throttleBundle:enIdentifier percentage:0];
+				}
+			}
 		}
 	}else if (prefs && ([prefs count] == 0)){
 		enabledIdentifier = @[];

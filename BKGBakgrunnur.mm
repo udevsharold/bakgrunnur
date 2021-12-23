@@ -6,6 +6,8 @@
 #import <mach/mach.h>
 #import <dlfcn.h>
 #import <objc/runtime.h>
+#import <libproc/libproc.h>
+#import <libproc/libproc_internal.h>
 #import "Vexillarius.h"
 
 //static NSDictionary *prefs;
@@ -158,7 +160,6 @@
 	NSMutableArray *toBeRemovedAdvancedMonitoringHistoryIdentifiers = [[NSMutableArray alloc] init];
 	NSMutableArray *toBeRemovedAssertionIdentifiers = [[NSMutableArray alloc] init];
 	
-	
 	[scenesByID enumerateKeysAndObjectsUsingBlock:^(NSString *sceneID, FBScene *scene, BOOL *stop) {
 		NSString *identifier = scene.clientProcess.identity.embeddedApplicationIdentifier;
 		if ([identifiers containsObject:identifier]) {
@@ -196,6 +197,7 @@
 	[self.grantedOnceIdentifiers removeObjectsInArray:toBeRemovedQueuedIdentifiers];
 	[self.userInitiatedIdentifiers removeObjectsInArray:identifiers];
 	[self cleanAssertionsForBundles:toBeRemovedAssertionIdentifiers];
+	[self throttleBundles:identifiers percentages:nil];
 	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		[self updateDarkWakeState];
@@ -238,6 +240,7 @@
 			[self.advancedMonitoringHistory removeObjectForKey:identifier];
 			//[self invalidateAssertion:identifier];
 			[self.userInitiatedIdentifiers removeObject:identifier];
+			[self throttleBundle:identifier percentage:0];
 			[self updateLabelAccessory:identifier];
 			[self cleanAssertionsForBundle:identifier];
 			
@@ -345,9 +348,21 @@
 		NSString *serviceindentifier =[simpleTimer valueForKey:@"_serviceIdentifier"];
 		if ([serviceindentifier isEqualToString:[NSString stringWithFormat:@"com.udevs.bakgrunnur.%@", identifier]]){
 			return YES;
-			break;
 		}
 	}
+	
+	for (NSString *immortalIdentifier in self.immortalIdentifiers){
+		if ([immortalIdentifier isEqualToString:identifier]){
+			return YES;
+		}
+	}
+	
+	for (NSString *advancedMonitoringIdentifier in self.advancedMonitoringIdentifiers){
+		if ([advancedMonitoringIdentifier isEqualToString:identifier]){
+			return YES;
+		}
+	}
+	
 	return NO;
 }
 
@@ -377,6 +392,7 @@
 			break;
 		}
 	}
+	[self throttleBundle:identifier percentage:0];
 	[self updateLabelAccessory:identifier];
 	
 }
@@ -544,9 +560,9 @@
 		RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
 		
 		_assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
-		
+
 		_assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
-		
+
 		[self subscribeToBundleDeath:identifier];
 		
 		HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggressive ? @"aggressive" : @"non-aggressive");
@@ -597,6 +613,28 @@
 	//SBApplicationController *sbAppController = [objc_getClass("SBApplicationController") sharedInstance];
 	//SBApplication *sbApp = [sbAppController applicationWithBundleIdentifier:identifier];
 	//[sbApp _setNewlyInstalled:YES];
+}
+
+-(void)throttleBundles:(NSArray <NSString *> *)bundleIdentifiers percentages:(NSArray <NSNumber *> *)percentages{
+	for (NSUInteger idx = 0; idx < bundleIdentifiers.count; idx++){
+		pid_t pid = [self pidForBundleIdentifier:bundleIdentifiers[idx]];
+		if (pid > 0){
+			int percentage = percentages ? [percentages[idx] intValue] : 0;
+			if (percentage > 0){
+				if (proc_setcpu_percentage(pid, PROC_SETCPU_ACTION_THROTTLE, percentage) == 0){
+					HBLogDebug(@"Throttled %@ (%d) with percentage %d%% ", bundleIdentifiers[idx], pid, percentage);
+				}
+			}else{
+				if (proc_clear_cpulimits(pid) == 0){
+					HBLogDebug(@"Restored CPU limits for %@ (%d) ", bundleIdentifiers[idx], pid);
+				}
+			}
+		}
+	}
+}
+
+-(void)throttleBundle:(NSString *)bundleIdentifier percentage:(int)percentage{
+	[self throttleBundles:@[bundleIdentifier] percentages:@[@(percentage)]];
 }
 
 -(void)presentBannerWithSubtitleIfPossible:(NSString *)subtitle forBundle:(NSString *)identifier{

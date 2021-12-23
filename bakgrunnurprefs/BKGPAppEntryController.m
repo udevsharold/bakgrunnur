@@ -31,9 +31,10 @@ static void refreshSpecifiers() {
         NSMutableArray *appEntrySpecifiers = [NSMutableArray array];
         
         _staticSpecifiers = [NSMutableArray array];
-        
+		_cpuThrottleWarningSpecifiers = [NSMutableArray array];
+
         //Enabled
-        _enabledEntrySpecifier = [PSSpecifier preferenceSpecifierNamed:@"Enabled" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+		_enabledEntrySpecifier = [PSSpecifier preferenceSpecifierNamed:@"Enabled" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
         [_enabledEntrySpecifier setProperty:@"Enabled" forKey:@"label"];
         [_enabledEntrySpecifier setProperty:@"enabled" forKey:@"key"];
         [_enabledEntrySpecifier setProperty:@NO forKey:@"default"];
@@ -96,6 +97,33 @@ static void refreshSpecifiers() {
         [aggressiveAssertionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
         [_expandableSpecifiers addObject:aggressiveAssertionSpec];
         
+		//throttle cpu
+		PSSpecifier *cpuThrottleGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+		[cpuThrottleGroupSpec setProperty:[NSString stringWithFormat:@"Throttle CPU usage of %@ while backgrounding. \"Aggressive\" option above might gets deprioritized if enabled. Default is 80%%.", self.title] forKey:@"footerText"];
+		[_expandableSpecifiers addObject:cpuThrottleGroupSpec];
+		
+		PSSpecifier *cpuThrottleSpecifier = [PSSpecifier preferenceSpecifierNamed:@"CPU Throttle" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+		[cpuThrottleSpecifier setProperty:@"CPU Throttle" forKey:@"label"];
+		[cpuThrottleSpecifier setProperty:@"cpuThrottleEnabled" forKey:@"key"];
+		[cpuThrottleSpecifier setProperty:@NO forKey:@"default"];
+		[cpuThrottleSpecifier setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+		[cpuThrottleSpecifier setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+		[_expandableSpecifiers addObject:cpuThrottleSpecifier];
+		
+		_cpuThrottlePercentageSpecifier = [PSTextFieldSpecifier preferenceSpecifierNamed:@"Percentage" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSEditTextCell edit:nil];
+		[_cpuThrottlePercentageSpecifier setKeyboardType:UIKeyboardTypeNumberPad autoCaps:UITextAutocapitalizationTypeNone autoCorrection:UITextAutocorrectionTypeNo];
+		[_cpuThrottlePercentageSpecifier setPlaceholder:@"80"];
+		[_cpuThrottlePercentageSpecifier setProperty:@"throttlePercentage" forKey:@"key"];
+		[_cpuThrottlePercentageSpecifier setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+		[_cpuThrottlePercentageSpecifier setProperty:@"Percentage" forKey:@"label"];
+		[_cpuThrottlePercentageSpecifier setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+		[_expandableSpecifiers addObject:_cpuThrottlePercentageSpecifier];
+		
+		//throttle cpu warning
+		_cpuThrottleWarningGroupSpecifier = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+		[_cpuThrottleWarningGroupSpecifier setProperty:@"" forKey:@"footerText"];
+		[_cpuThrottleWarningSpecifiers addObject:_cpuThrottleWarningGroupSpecifier];
+		
         //expiration
         PSSpecifier *expirationGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [expirationGroupSpec setProperty:@"Set the expiration time (s) for app to be retired/terminated. The countdown will begin when the app entered background or the device is locked. It'll be reset whenever the app is in foreground or active again. Default is 3 hours." forKey:@"footerText"];
@@ -174,6 +202,37 @@ static void refreshSpecifiers() {
     return _specifiers;
 }
 
+-(BOOL)shouldShowCPUThrottleWarning:(double *)throttle threshold:(double *)threshold{
+	
+	if (_cpuThrottleWarningShown) return NO;
+	
+	double throttlePercentage = [valueForConfigKey(self.specifier.identifier, @"throttlePercentage", @50) doubleValue];
+	double cpuUsageThreshold = [valueForConfigKey(self.specifier.identifier, @"cpuUsageThreshold", @(0.5)) doubleValue];
+	BOOL cpuThrottleEnabled = [valueForConfigKey(self.specifier.identifier, @"cpuThrottleEnabled", @NO) boolValue];
+	BOOL cpuUsageEnabled = [valueForConfigKey(self.specifier.identifier, @"cpuUsageEnabled", @NO) boolValue];
+	BKGBackgroundType type = [valueForConfigKey(self.specifier.identifier, @"retire", @(BKGBackgroundTypeRetire)) unsignedLongValue];
+	
+	if (type != BKGBackgroundTypeAdvanced) return NO;
+	
+	if (throttle) *throttle = throttlePercentage;
+	if (threshold) *threshold = cpuUsageThreshold;
+	return cpuThrottleEnabled && cpuUsageEnabled && throttlePercentage < cpuUsageThreshold;
+}
+
+-(void)showCPUThrottleWarningIfNecessary{
+	double throttlePercentage = -1.0;
+	double cpuUsageThreshold = -1.0;
+	if ([self shouldShowCPUThrottleWarning:&throttlePercentage threshold:&cpuUsageThreshold]){
+		[_cpuThrottleWarningGroupSpecifier setProperty:[NSString stringWithFormat:@"⚠️WARNING: Throttle percentage (%d%%) is lower than CPU threshold (%.2f%%) set in \"Advanced\" mode, you may have unresolved conflicts.", (int)throttlePercentage, cpuUsageThreshold] forKey:@"footerText"];
+		[self reloadSpecifier:_cpuThrottlePercentageSpecifier animated:YES];
+		[self insertContiguousSpecifiers:_cpuThrottleWarningSpecifiers afterSpecifier:_cpuThrottlePercentageSpecifier animated:YES];
+		_cpuThrottleWarningShown = YES;
+	}else{
+		[self removeContiguousSpecifiers:_cpuThrottleWarningSpecifiers animated:YES];
+		_cpuThrottleWarningShown = NO;
+	}
+}
+
 - (id)readGlobalPreferenceValue:(PSSpecifier*)specifier {
     return valueForKey(specifier.properties[@"key"], specifier.properties[@"default"]);
 }
@@ -233,10 +292,17 @@ static void refreshSpecifiers() {
         [self reloadSpecifier:_systemCallsControllerSpecifier animated:YES];
         [self reloadSpecifier:_networkControllerSpecifier animated:YES];
         [self reloadSpecifier:_timeSpanSpecifier animated:YES];
-    }
+	}else if ([key isEqualToString:@"cpuThrottleEnabled"]){
+		[_cpuThrottlePercentageSpecifier setProperty:value forKey:@"enabled"];
+		[self reloadSpecifier:_cpuThrottlePercentageSpecifier animated:YES];
+	}
     
     setValueForConfigKey(self.specifier.identifier, key, value);
-    
+	
+	if ([key isEqualToString:@"cpuThrottleEnabled"] || [key isEqualToString:@"retire"]){
+		[self showCPUThrottleWarningIfNecessary];
+	}
+	
     if ([key isEqualToString:@"enabled"]){
         if ([value boolValue] && !_expanded){
             [self insertContiguousSpecifiers:_expandableSpecifiers afterSpecifier:specifier animated:YES];
@@ -281,6 +347,13 @@ static void refreshSpecifiers() {
     [self reloadSpecifier:_systemCallsControllerSpecifier animated:YES];
     [self reloadSpecifier:_networkControllerSpecifier animated:YES];
     [self reloadSpecifier:_timeSpanSpecifier animated:YES];
+	
+	BOOL cpuThrottleEnabled = boolValueForConfigKey(self.specifier.identifier, @"cpuThrottleEnabled", NO);
+	[_cpuThrottlePercentageSpecifier setProperty:@(cpuThrottleEnabled) forKey:@"enabled"];
+	[self reloadSpecifier:_cpuThrottlePercentageSpecifier animated:YES];
+	
+	[self showCPUThrottleWarningIfNecessary];
+	
     [super viewWillAppear:animated];
 }
 
