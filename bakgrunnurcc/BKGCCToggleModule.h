@@ -12,6 +12,7 @@
 	BOOL _shouldSetValue;
 	BKGCCModuleContentViewController* _contentViewController;
 }
+@property (nonatomic, assign) BOOL expandOnTap;
 -(void)updateState;
 -(void)updateStateViaPreferences;
 @end

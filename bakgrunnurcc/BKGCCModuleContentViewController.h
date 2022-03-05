@@ -4,7 +4,9 @@
 
 @class BKGCCToggleModule;
 
-@interface BKGCCModuleContentViewController : CCUIMenuModuleViewController
+@interface BKGCCModuleContentViewController : CCUIMenuModuleViewController{
+	BOOL _isTap;
+}
 @property (nonatomic, weak) BKGCCToggleModule* module;
 @property (nonatomic, assign) BOOL rejectTap;
 @property (nonatomic, assign) BOOL lastSelected;

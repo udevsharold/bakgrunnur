@@ -151,8 +151,7 @@ static void refreshSpecifiers() {
         [retireSelectionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
         [retireSelectionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
         [_expandableSpecifiers addObject:retireSelectionSpec];
-        
-        
+		
         //Advanced
         PSSpecifier *advancedGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         [advancedGroupSpec setProperty:[NSString stringWithFormat:@"Time Span is a global value, which means it applies to all enabled apps in this category to pleasantly manage power usage. Default is 30 minutes. Two periodic checks will be performed within the time span."] forKey:@"footerText"];

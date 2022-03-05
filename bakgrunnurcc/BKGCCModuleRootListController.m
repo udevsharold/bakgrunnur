@@ -7,9 +7,9 @@
 -(NSArray *)specifiers{
     if (!_specifiers) {
         NSMutableArray *rootSpecifiers = [[NSMutableArray alloc] init];
-        PSSpecifier *longPressingGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Long Press/Force Touch" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-        [longPressingGroupSpec setProperty:@"Set action when long pressing/force touching the module. Enable Once only valid in instance where master Enabled switch for the app is off, and its token will be revoked when the app is active again." forKey:@"footerText"];
-        [rootSpecifiers addObject:longPressingGroupSpec];
+        PSSpecifier *actionsGroupSpec = [PSSpecifier preferenceSpecifierNamed:@"Gestures" target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
+        [actionsGroupSpec setProperty:@"Enable Once only valid in instance where master Enabled switch for the app is off, and its token will be revoked when the app is active again." forKey:@"footerText"];
+        [rootSpecifiers addObject:actionsGroupSpec];
         
         /*
         //action
@@ -21,17 +21,28 @@
         //[actionSelectionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
         [rootSpecifiers addObject:actionSelectionSpec];
         */
+		
+		//action - single
+		PSSpecifier *singleTapSelectionSpec = [PSSpecifier preferenceSpecifierNamed:@"Single Tap" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"PSListItemsController") cell:PSLinkListCell edit:Nil];
+		[singleTapSelectionSpec setProperty:NSClassFromString(@"PSLinkListCell") forKey:@"cellClass"];
+		[singleTapSelectionSpec setProperty:@"Single Tap Action" forKey:@"label"];
+		[singleTapSelectionSpec setProperty:@(BKGCCModuleActionToggle) forKey:@"default"];
+		[singleTapSelectionSpec setValues:@[@(BKGCCModuleActionOpenAppSettings), @(BKGCCModuleActionToggle), @(BKGCCModuleActionToggleApp), @(BKGCCModuleActionToggleAppOnce), @(BKGCCModuleActionExpandModule), @(BKGCCModuleActionDoNothing)] titles:@[@"App Settings", @"Toggle Bakgrunnur", @"Toggle App", @"Toggle App (Once)", @"Expand Module", @"Do Nothing"]];
+		[singleTapSelectionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+		[singleTapSelectionSpec setProperty:@"moduleSingleTapAction" forKey:@"key"];
+		[singleTapSelectionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+		[rootSpecifiers addObject:singleTapSelectionSpec];
         
-        //action - list
-        PSSpecifier *actionSelectionSpec = [PSSpecifier preferenceSpecifierNamed:@"Long Press Action" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"PSListItemsController") cell:PSLinkListCell edit:Nil];
-        [actionSelectionSpec setProperty:NSClassFromString(@"PSLinkListCell") forKey:@"cellClass"];
-        [actionSelectionSpec setProperty:@"Long Press Action" forKey:@"label"];
-        [actionSelectionSpec setProperty:@(-1) forKey:@"default"];
-        [actionSelectionSpec setValues:@[@0, @1, @2, @3, @4, @5, @6, @(-1)] titles:@[@"App Settings", @"Enable App", @"Disable App", @"Toggle App", @"Enable App Once", @"Disable App Once", @"Toggle App Once", @"Expand Module"]];
-        [actionSelectionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
-        [actionSelectionSpec setProperty:@"moduleAction" forKey:@"key"];
-        [actionSelectionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
-        [rootSpecifiers addObject:actionSelectionSpec];
+        //action - long press
+        PSSpecifier *longPressSelectionSpec = [PSSpecifier preferenceSpecifierNamed:@"Long Press" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:NSClassFromString(@"PSListItemsController") cell:PSLinkListCell edit:Nil];
+        [longPressSelectionSpec setProperty:NSClassFromString(@"PSLinkListCell") forKey:@"cellClass"];
+        [longPressSelectionSpec setProperty:@"Long Press Action" forKey:@"label"];
+        [longPressSelectionSpec setProperty:@(BKGCCModuleActionDefault) forKey:@"default"];
+		[longPressSelectionSpec setValues:@[@(BKGCCModuleActionOpenAppSettings), @(BKGCCModuleActionToggle), @(BKGCCModuleActionEnableApp), @(BKGCCModuleActionDisableApp), @(BKGCCModuleActionToggleApp), @(BKGCCModuleActionEnableAppOnce), @(BKGCCModuleActionDisableAppOnce), @(BKGCCModuleActionToggleAppOnce), @(BKGCCModuleActionExpandModule), @(BKGCCModuleActionDoNothing)] titles:@[@"App Settings", @"Toggle Bakgrunnur", @"Enable App", @"Disable App", @"Toggle App", @"Enable App (Once)", @"Disable App (Once)", @"Toggle App (Once)", @"Expand Module", @"Do Nothing"]];
+        [longPressSelectionSpec setProperty:BAKGRUNNUR_IDENTIFIER forKey:@"defaults"];
+        [longPressSelectionSpec setProperty:@"moduleAction" forKey:@"key"];
+        [longPressSelectionSpec setProperty:PREFS_CHANGED_NOTIFICATION_NAME forKey:@"PostNotification"];
+        [rootSpecifiers addObject:longPressSelectionSpec];
         
         
         _specifiers = rootSpecifiers;

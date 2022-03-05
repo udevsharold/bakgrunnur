@@ -2,6 +2,17 @@
 #import <UIKit/UIKit.h>
 #import <HBLog.h>
 
+//#if defined(__IPHONE_14_0) || defined(__MAC_10_16) || defined(__TVOS_14_0) || defined(__WATCHOS_7_0)
+//#define OBJC_DIRECT_MEMBERS __attribute__((objc_direct_members))
+//#define OBJC_DIRECT __attribute__((objc_direct))
+//#define DIRECT ,direct
+//#else
+//#define OBJC_DIRECT_MEMBERS
+//#define OBJC_DIRECT
+//#define DIRECT
+//#endif
+
+
 #define BAKGRUNNUR_IDENTIFIER @"com.udevs.bakgrunnur"
 #define PREFS_CHANGED_NOTIFICATION_NAME @"com.udevs.bakgrunnur.prefschanged"
 #define CLI_REQUEST_NOTIFICATION_NAME @"com.udevs.bakgrunnur.cli"
@@ -46,4 +57,20 @@ typedef NS_ENUM(NSUInteger, BKGBackgroundType) {
     BKGBackgroundTypeRetire,
     BKGBackgroundTypeImmortal,
     BKGBackgroundTypeAdvanced
+};
+
+typedef NS_ENUM(NSInteger, BKGCCModuleAction) {
+	BKGCCModuleActionDefault = -1,
+	BKGCCModuleActionExpandModule = BKGCCModuleActionDefault,
+	BKGCCModuleActionOpenAppSettings = 0,
+	BKGCCModuleActionEnableApp,
+	BKGCCModuleActionDisableApp,
+	BKGCCModuleActionToggleApp,
+	BKGCCModuleActionEnableAppOnce,
+	BKGCCModuleActionDisableAppOnce,
+	BKGCCModuleActionToggleAppOnce,
+	BKGCCModuleActionEnable,
+	BKGCCModuleActionDisable,
+	BKGCCModuleActionToggle,
+	BKGCCModuleActionDoNothing
 };

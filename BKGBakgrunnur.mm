@@ -1,4 +1,3 @@
-#import "common.h"
 #import "BKGShared.h"
 #import "BKGBakgrunnur.h"
 #import "NSTask.h"
@@ -560,9 +559,9 @@
 		RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
 		
 		_assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
-
+		
 		_assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
-
+		
 		[self subscribeToBundleDeath:identifier];
 		
 		HBLogDebug(@"Acquired assertion for %@ with %@ mode", identifier, aggressive ? @"aggressive" : @"non-aggressive");
@@ -709,9 +708,9 @@
 }
 
 -(void)sendVexillariusMesage:(xpc_object_t)message{
-	xpc_connection_t cslConnection = [self vxXPCConnection];
-	if (cslConnection){
-		xpc_connection_send_message(cslConnection, message);
+	xpc_connection_t vxConnection = [self vxXPCConnection];
+	if (vxConnection){
+		xpc_connection_send_message(vxConnection, message);
 	}
 }
 

@@ -6,14 +6,18 @@
 #import <ControlCenterUIKit/CCUIButtonModuleView.h>
 #import "../BKGBakgrunnur.h"
 #import "../BKGShared.h"
+#import <objc/runtime.h>
 
 #define CLEAN_GLYPH_TAG 88888
 
-@interface UIApplication ()
--(BOOL)_openURL:(id)arg1 ;
-@end
-
 @implementation BKGCCModuleContentViewController
+
+- (void)viewWillAppear:(BOOL)animated{
+	[super viewWillAppear:animated];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self.module updateStateViaPreferences];
+	});
+}
 
 - (void)viewWillLayoutSubviews{
 	[super viewWillLayoutSubviews];
@@ -29,8 +33,7 @@
 			UIView *cleanGlyph = [self.buttonView viewWithTag:CLEAN_GLYPH_TAG];
 			cleanGlyph.hidden = NO;
 		}
-	}
-	else{
+	}else{
 		[self.buttonView.subviews setValue:@NO forKeyPath:@"hidden"];
 		UIView *cleanGlyph = [self.buttonView viewWithTag:CLEAN_GLYPH_TAG];
 		
@@ -138,10 +141,11 @@
 }
 
 
-- (void)buttonTapped:(id)arg1 forEvent:(id)arg2{
+- (void)buttonTapped:(id)arg1 forEvent:(UIEvent *)event{
 	if (self.rejectTap) return;
+	_isTap = event.allTouches.allObjects.firstObject.tapCount > 0;
 	BOOL newState = ![self isSelected];
-	[self setSelected:newState];
+	[self setSelected:self.module.expandOnTap ? !newState : newState];
 	[self.module setSelected:newState];
 }
 
@@ -166,13 +170,18 @@
 
 -(BOOL)shouldBeginTransitionToExpandedContentModule{
 	if (self.rejectTap) return NO;
+	if (self.module.expandOnTap && !self.expanded && _isTap){
+		[self populateActions];
+		_isTap = NO;
+		return YES;
+	}
 	NSDictionary *prefs = getPrefs();
-	int actionType = prefs[@"moduleAction"] ? [prefs[@"moduleAction"] intValue] : -1;
+	BKGCCModuleAction actionType = intValueForKeyWithPrefs(@"moduleAction", BKGCCModuleActionDefault, prefs);
 	SBApplication *frontMostApp = [(SpringBoard *)[UIApplication sharedApplication] _accessibilityFrontMostApplication];
-	if (actionType == 0){
+	if (actionType == BKGCCModuleActionOpenAppSettings){
 		NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"prefs:root=Bakgrunnur&path=Manage%%20Apps/%@", frontMostApp.bundleIdentifier]];
 		[[UIApplication sharedApplication] _openURL:url];
-	}else if (actionType == 1){
+	}else if (actionType == BKGCCModuleActionEnableApp){
 		if (frontMostApp.bundleIdentifier){
 			[self setPreferenceValue:@YES forKey:@"enabled" bundleIdentifier:frontMostApp.bundleIdentifier];
 			CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)PREFS_CHANGED_NOTIFICATION_NAME, NULL, NULL, YES);
@@ -189,7 +198,7 @@
 			
 		});
 		//[[NSClassFromString(@"SBControlCenterController") sharedInstance] dismissAnimated:YES completion:nil];
-	}else if (actionType == 2){
+	}else if (actionType == BKGCCModuleActionDisableApp){
 		if (frontMostApp.bundleIdentifier){
 			[self setPreferenceValue:@NO forKey:@"enabled" bundleIdentifier:frontMostApp.bundleIdentifier];
 			CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)PREFS_CHANGED_NOTIFICATION_NAME, NULL, NULL, YES);
@@ -206,7 +215,7 @@
 			
 		});
 		//[[NSClassFromString(@"SBControlCenterController") sharedInstance] dismissAnimated:YES completion:nil];
-	}else if (actionType == 3){
+	}else if (actionType == BKGCCModuleActionToggleApp){
 		if (frontMostApp.bundleIdentifier){
 			BOOL toggleVal = NO;
 			NSDictionary *item = [self getItem:prefs ofIdentifier:frontMostApp.bundleIdentifier forKey:@"enabledIdentifier" identifierKey:@"identifier" completion:nil];
@@ -230,7 +239,7 @@
 				
 			});
 		}
-	}else if (actionType == 4){ //Enable Once
+	}else if (actionType == BKGCCModuleActionEnableAppOnce){ //Enable Once
 		if (frontMostApp.bundleIdentifier){
 			BOOL toggleVal = NO;
 			NSDictionary *item = [self getItem:prefs ofIdentifier:frontMostApp.bundleIdentifier forKey:@"enabledIdentifier" identifierKey:@"identifier" completion:nil];
@@ -269,7 +278,7 @@
 			}
 		}
 		//[[NSClassFromString(@"SBControlCenterController") sharedInstance] dismissAnimated:YES completion:nil];
-	}else if (actionType == 5){ //Disable Once
+	}else if (actionType == BKGCCModuleActionDisableAppOnce){ //Disable Once
 		if (frontMostApp.bundleIdentifier){
 			BOOL toggleVal = NO;
 			NSDictionary *item = [self getItem:prefs ofIdentifier:frontMostApp.bundleIdentifier forKey:@"enabledIdentifier" identifierKey:@"identifier" completion:nil];
@@ -307,7 +316,7 @@
 			}
 		}
 		//[[NSClassFromString(@"SBControlCenterController") sharedInstance] dismissAnimated:YES completion:nil];
-	}else if (actionType == 6){ //Toggle Once
+	}else if (actionType == BKGCCModuleActionToggleAppOnce){ //Toggle Once
 		if (frontMostApp.bundleIdentifier){
 			BOOL toggleVal = NO;
 			NSDictionary *item = [self getItem:prefs ofIdentifier:frontMostApp.bundleIdentifier forKey:@"enabledIdentifier" identifierKey:@"identifier" completion:nil];
@@ -353,11 +362,23 @@
 			}
 		}
 		//[[NSClassFromString(@"SBControlCenterController") sharedInstance] dismissAnimated:YES completion:nil];
+	}else if (actionType == BKGCCModuleActionDoNothing){
+		return NO;
+	}else if (actionType == BKGCCModuleActionToggle){
+		BOOL newState = ![self.module isSelected];
+		setValueForKey(@"enabled", @(newState));
+		CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), (CFStringRef)RELOAD_SPECIFIERS_NOTIFICATION_NAME, NULL, NULL, YES);
+		[self.module updateStateViaPreferences];
+		self.rejectTap = YES;
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			self.rejectTap = NO;
+		});
+		return NO;
 	}else{
 		[self populateActions];
 		return YES;
 	}
-	[[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
+	//[[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
 	return NO;
 }
 

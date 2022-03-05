@@ -1,3 +1,4 @@
+#import "common.h"
 #import <xpc/xpc.h>
 #import <os/lock.h>
 #import "PrivateHeaders.h"

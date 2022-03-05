@@ -1,6 +1,25 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
+@interface UIApplication ()
+-(BOOL)_openURL:(id)arg1 ;
+@end
+
+@interface CCUIContentModuleContext : NSObject
++(id)_sharedOpenAppService;
++(id)_sharedOpenApplicationOptions;
+-(id)initWithModuleIdentifier:(id)arg1 ;
+-(void)requestAuthenticationWithCompletionHandler:(/*^block*/id)arg1 ;
+-(void)enqueueStatusUpdate:(id)arg1 ;
+-(void)requestExpandModule;
+-(void)requestLayoutSizeUpdate;
+-(void)openApplication:(id)arg1 completionHandler:(/*^block*/id)arg2 ;
+-(void)openApplication:(id)arg1 withOptions:(id)arg2 completionHandler:(/*^block*/id)arg3 ;
+-(void)dismissControlCenter;
+-(void)setHomeGestureDismissalAllowed:(BOOL)arg1 ;
+-(void)dismissModule;
+@end
+
 @interface RBSProcessIdentity : NSObject
 @property (nonatomic,copy,readonly) NSString * embeddedApplicationIdentifier;
 @property (nonatomic,copy,readonly) NSString * executablePath;
