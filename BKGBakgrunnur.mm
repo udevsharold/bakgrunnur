@@ -478,7 +478,11 @@
 }
 
 -(RBSTarget *)targetFromBundle:(NSString *)identifier withTargetEnv:(NSString *)targetEnv{
-	return [objc_getClass("RBSTarget") targetWithPid:[self pidForBundleIdentifier:identifier] environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
+	pid_t pid = [self pidForBundleIdentifier:identifier];
+	if (pid > 0){
+		return [objc_getClass("RBSTarget") targetWithPid:pid environmentIdentifier:[NSString stringWithFormat:@"UIScene:com.apple.frontboard.systemappservices::%@", targetEnv]];
+	}
+	return nil;
 }
 
 -(RBSAssertionIdentifier *)_reallyAcquireAssertion:(RBSAssertion *)assertion error:(NSError **)err{
@@ -557,7 +561,10 @@
 	if (!_assertions[scene.identifier]){
 		
 		RBSTarget *target = [self targetFromBundle:identifier withTargetEnv:scene.identifier];
-		
+		if (!target){
+			HBLogDebug(@"Invalid pid for %@, assertion not acquired.", identifier);
+			return;
+		}
 		_assertions[scene.identifier] = [self assertionWithTarget:target aggressive:aggressive];
 		
 		_assertionIdentifiers[scene.identifier] = [self _reallyAcquireAssertion:_assertions[scene.identifier] error:nil];
