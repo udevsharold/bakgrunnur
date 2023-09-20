@@ -5,7 +5,7 @@ export FINALPACKAGE = 1
 
 export PREFIX = $(THEOS)/toolchain/Xcode11.xctoolchain/usr/bin/
 
-TARGET = iphone:clang:latest:7.0
+TARGET := iphone:clang:14.5:7.0
 
 INSTALL_TARGET_PROCESSES = SpringBoard
 
