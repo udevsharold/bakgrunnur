@@ -1,9 +1,0 @@
-#!/bin/bash
-
-chown root:wheel /usr/bin/bkg
-chmod +s /usr/bin/bkg
-
-echo "Unloading runningboardd..."
-killall -9 runningboardd
-
-exit 0
